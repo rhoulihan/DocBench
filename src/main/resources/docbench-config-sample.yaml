@@ -1,0 +1,87 @@
+# DocBench Sample Configuration
+# Copy to docbench-config.yaml and customize
+
+version: "1.0"
+
+# Global settings
+global:
+  outputDirectory: "./results"
+  seed: 12345                    # Reproducibility
+  logLevel: INFO
+
+# Database connections
+connections:
+  mongodb:
+    uri: "mongodb://localhost:27017/docbench"
+    options:
+      maxPoolSize: 10
+      minPoolSize: 2
+      connectTimeoutMs: 5000
+      serverSelectionTimeoutMs: 5000
+
+  oracle:
+    jdbcUrl: "jdbc:oracle:thin:@localhost:1521/FREEPDB1"
+    username: "docbench"
+    password: "${ORACLE_PASSWORD}"  # Environment variable reference
+    options:
+      initialPoolSize: 2
+      maxPoolSize: 10
+      connectionWaitTimeout: 5
+
+# Workload definitions
+workloads:
+  traverse-deep:
+    enabled: true
+    parameters:
+      nestingDepth: 5
+      fieldsPerLevel: 20
+      targetPath: "order.items[5].product.sku"
+      arraySize: 10
+    execution:
+      iterations: 50000
+      warmupIterations: 5000
+      concurrency: 1
+
+  traverse-shallow:
+    enabled: true
+    parameters:
+      fieldCount: 20
+      targetPosition: LAST
+    execution:
+      iterations: 10000
+      warmupIterations: 1000
+
+  traverse-scale:
+    enabled: false
+    parameters:
+      documentCount: 100000
+      accessPattern: RANDOM
+      projectionType: SINGLE_FIELD
+    execution:
+      iterations: 10000
+
+# Adapter-specific settings
+adapters:
+  mongodb:
+    enabled: true
+    collectionName: "benchmark_docs"
+    writeConcern: "majority"
+    readPreference: "primary"
+
+  oracle-oson:
+    enabled: true
+    collectionName: "BENCHMARK_DOCS"
+    useOSON: true
+    enableTraversalMetrics: true
+
+# Measurement settings
+measurement:
+  percentiles: [50, 90, 95, 99, 99.9]
+  histogramPrecision: 3
+  captureRawTimings: false
+
+# Report settings
+reporting:
+  formats: ["json", "markdown"]
+  includeSystemInfo: true
+  includeConfiguration: true
