@@ -1,5 +1,7 @@
 package com.docbench.cli;
 
+import com.docbench.adapter.AdapterRegistry;
+import com.docbench.workload.WorkloadRegistry;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -61,24 +63,16 @@ public class ListCommand implements Callable<Integer> {
         System.out.println("-".repeat(50));
         System.out.println();
 
-        printWorkload("traverse-shallow", "Single-level field access",
-                "Measures field-location overhead at document root level");
-        printWorkload("traverse-deep", "Multi-level nested access",
-                "Primary workload for O(n) vs O(1) traversal comparison");
-        printWorkload("traverse-scale", "Volume amplification",
-                "Demonstrates overhead compounding across large document volumes");
-        printWorkload("deserialize-full", "Complete document parsing",
-                "Measures client-side deserialization overhead for full documents");
-        printWorkload("deserialize-partial", "Projection-based parsing",
-                "Measures client library ability to skip unneeded fields");
-    }
+        // List registered workloads
+        WorkloadRegistry.describeAll().forEach((id, description) -> {
+            System.out.println("  " + id);
+            if (verbose) {
+                System.out.println("    " + description);
+            }
+        });
 
-    private void printWorkload(String id, String name, String description) {
-        System.out.println("  " + id);
-        System.out.println("    " + name);
-        if (verbose) {
-            System.out.println("    " + description);
-        }
+        System.out.println();
+        System.out.println("Usage: docbench run -w <workload> -a <adapter>");
     }
 
     private void listAdapters() {
@@ -86,18 +80,18 @@ public class ListCommand implements Callable<Integer> {
         System.out.println("-".repeat(50));
         System.out.println();
 
-        printAdapter("mongodb", "MongoDB", "7.0+",
-                "BSON format with O(n) field scanning");
-        printAdapter("oracle-oson", "Oracle OSON", "23ai+",
-                "OSON format with O(1) hash-indexed navigation");
-    }
-
-    private void printAdapter(String id, String name, String version, String description) {
-        System.out.println("  " + id);
-        System.out.println("    " + name + " (" + version + ")");
-        if (verbose) {
-            System.out.println("    " + description);
-        }
+        // List registered adapters
+        AdapterRegistry.describeAll().forEach((id, name) -> {
+            System.out.println("  " + id);
+            System.out.println("    " + name);
+            if (verbose) {
+                if (id.equals("mongodb")) {
+                    System.out.println("    BSON format with O(n) field scanning");
+                } else if (id.equals("oracle-oson")) {
+                    System.out.println("    OSON format with O(1) hash-indexed navigation");
+                }
+            }
+        });
     }
 
     private void listMetrics() {
@@ -107,16 +101,25 @@ public class ListCommand implements Callable<Integer> {
 
         System.out.println("  Latency Metrics:");
         printMetric("total_latency", "End-to-end operation time");
-        printMetric("server_execution_time", "DB-reported execution time");
-        printMetric("server_traversal_time", "Document navigation (server)");
-        printMetric("client_deserialization_time", "Response parsing (client)");
-        printMetric("client_traversal_time", "Field access after parsing");
+        printMetric("traverse", "Path traversal latency");
+        printMetric("deserialize", "Full document deserialization latency");
 
         System.out.println();
-        System.out.println("  Derived Metrics:");
-        printMetric("overhead_ratio", "Percentage spent in overhead");
-        printMetric("traversal_ratio", "Traversal overhead percentage");
-        printMetric("efficiency_score", "Data retrieval efficiency");
+        System.out.println("  Overhead Breakdown:");
+        printMetric("serialization", "Document serialization time");
+        printMetric("deserialization", "Document deserialization time");
+        printMetric("server_execution", "Server-side execution time");
+        printMetric("server_traversal", "Server-side path navigation");
+        printMetric("client_traversal", "Client-side field access");
+        printMetric("network_overhead", "Network round-trip overhead");
+
+        System.out.println();
+        System.out.println("  Statistical Percentiles:");
+        printMetric("p50", "Median latency");
+        printMetric("p90", "90th percentile");
+        printMetric("p95", "95th percentile");
+        printMetric("p99", "99th percentile");
+        printMetric("p999", "99.9th percentile");
     }
 
     private void printMetric(String id, String description) {

@@ -1,6 +1,6 @@
 package com.docbench.adapter.spi;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -16,7 +16,9 @@ public final class JsonDocument {
 
     private JsonDocument(String id, Map<String, Object> content) {
         this.id = Objects.requireNonNull(id, "id must not be null");
-        this.content = Map.copyOf(Objects.requireNonNull(content, "content must not be null"));
+        // Use LinkedHashMap to preserve field insertion order for position-sensitive tests
+        this.content = java.util.Collections.unmodifiableMap(
+                new LinkedHashMap<>(Objects.requireNonNull(content, "content must not be null")));
     }
 
     /**
@@ -162,7 +164,7 @@ public final class JsonDocument {
      */
     public static final class Builder {
         private final String id;
-        private final Map<String, Object> content = new HashMap<>();
+        private final Map<String, Object> content = new LinkedHashMap<>();
 
         private Builder(String id) {
             this.id = Objects.requireNonNull(id, "id must not be null");

@@ -34,31 +34,46 @@ Real benchmark results comparing BSON vs OSON field access performance:
 
 Test Case                            BSON (μs)  OSON (μs)   Ratio  Winner
 --------------------------------------------------------------------------------
-Position 1/100 (projection)              1519        650   2.34x  OSON
-Position 50/100 (projection)             1026        545   1.88x  OSON
-Position 100/100 (projection)             820        453   1.81x  OSON
-Position 500/500 (projection)             859        448   1.92x  OSON
-Depth 1 projection                        831        524   1.59x  OSON
-Depth 3 projection                        604        383   1.58x  OSON
-Depth 5 projection                        621        363   1.71x  OSON
-Depth 8 projection                        657        400   1.64x  OSON
-3 fields from 200                         696        400   1.74x  OSON
-5 fields from 200                         643        412   1.56x  OSON
-50 fields (full read)                     604        751   0.80x  BSON
-200 fields (full read)                    699        861   0.81x  BSON
-customer.tier (nested)                    587        383   1.53x  OSON
-grandTotal (last field)                   522        370   1.41x  OSON
+Position 1/100 (projection)              1280        572   2.24x  OSON
+Position 50/100 (projection)              959        494   1.94x  OSON
+Position 100/100 (projection)             726        436   1.67x  OSON
+Position 500/500 (projection)             783        443   1.77x  OSON
+Depth 1 projection                        858        410   2.09x  OSON
+Depth 3 projection                        580        360   1.61x  OSON
+Depth 5 projection                        567        347   1.63x  OSON
+Depth 8 projection                        622        361   1.72x  OSON
+3 fields from 200                         598        380   1.57x  OSON
+5 fields from 200                         547        389   1.41x  OSON
+50 fields (full read)                     665        706   0.94x  BSON
+200 fields (full read)                    690        727   0.95x  BSON
+customer.tier (nested)                    520        349   1.49x  OSON
+grandTotal (last field)                   530        351   1.51x  OSON
 --------------------------------------------------------------------------------
-TOTAL                                   10688       6943   1.54x  OSON
+TOTAL                                    9925       6325   1.57x  OSON
 
 Summary:
   BSON wins: 2 (full document reads)
   OSON wins: 12 (field projections)
-  Overall: OSON 1.54x faster
+  Overall: OSON 1.57x faster
 ================================================================================
 ```
 
-**Key Finding**: OSON's O(1) hash-indexed access via `JSON_VALUE` is **1.5-2.3x faster** for field projection operations. Full document reads favor BSON slightly.
+**Key Finding**: OSON's O(1) hash-indexed access via `JSON_VALUE` is **1.5-2.2x faster** for field projection operations. Full document reads favor BSON slightly (0.94-0.95x).
+
+### Benchmark Test Descriptions
+
+| Test | Description | Purpose |
+|------|-------------|---------|
+| **Position 1/100** | Extract first field from 100-field document | BSON scans just 1 field; best case for BSON |
+| **Position 50/100** | Extract middle field from 100-field document | BSON scans 50 fields; OSON does O(1) lookup |
+| **Position 100/100** | Extract last field from 100-field document | Worst case for BSON O(n) scanning |
+| **Position 500/500** | Extract last field from 500-field document | Tests scalability with larger documents |
+| **Depth 1-8** | Extract nested field at various depths | OSON hash-lookup at each level vs BSON sequential scan |
+| **3 fields from 200** | Project 3 scattered fields from 200-field doc | OSON: 3 hash lookups; BSON: potentially full scan |
+| **5 fields from 200** | Project 5 scattered fields from 200-field doc | Multi-field extraction comparison |
+| **50/200 fields (full)** | Read entire document | Baseline: both must read everything |
+| **customer.tier** | Access nested field in e-commerce order | Real-world nested object traversal |
+| **grandTotal** | Access last field in complex document | Tests last-field penalty in BSON |
 
 ## Quick Start
 
@@ -79,17 +94,33 @@ Summary:
 ### Run Tests
 
 ```bash
-# Unit tests (158 tests)
+# Unit tests (238 tests)
 ./gradlew test
 
-# Integration tests (requires Docker with MongoDB and Oracle)
+# Integration tests (48 tests - requires MongoDB and Oracle)
 ./gradlew integrationTest
 
-# Run BSON vs OSON benchmark comparison
+# Run BSON vs OSON benchmark comparison (14 tests)
 ./gradlew integrationTest --tests "*.BsonVsOsonComparisonTest"
 
 # Mutation testing
 ./gradlew pitest
+```
+
+### CLI Usage
+
+```bash
+# List available workloads, adapters, and metrics
+./gradlew run --args="list --verbose"
+
+# Dry run - validate configuration without executing
+./gradlew run --args="run --all-workloads -a mongodb -a oracle-oson --dry-run"
+
+# Run specific workload
+./gradlew run --args="run -w traverse -a mongodb --iterations 1000"
+
+# Run with custom document parameters
+./gradlew run --args="run -w deserialize -a mongodb --doc-count 50 --nesting-depth 8"
 ```
 
 ### Configuration
@@ -134,7 +165,7 @@ oracle.password=your_password
 ### Completed ✅
 
 - **Phase 1: Core Infrastructure**
-  - TimeSource, RandomSource utilities
+  - TimeSource, RandomSource utilities with seeded reproducibility
   - OverheadBreakdown record with timing decomposition
   - MetricsCollector with HdrHistogram integration
   - DatabaseAdapter SPI with full interface hierarchy
@@ -152,17 +183,20 @@ oracle.password=your_password
   - JSON_TRANSFORM for O(1) updates
   - Connection pooling via Oracle UCP
 
+- **Phase 4: Workloads and Reporting**
+  - WorkloadConfig with builder pattern and validation
+  - DocumentGenerator with configurable nesting, arrays, and sizing
+  - TraverseWorkload for path traversal benchmarks
+  - DeserializeWorkload for full document parsing benchmarks
+  - Report generators: Console, JSON, CSV, HTML
+  - CLI commands: run, compare, report, list, validate
+  - BenchmarkExecutor orchestration with warmup phases
+
 - **Benchmark Comparison**
   - 14 comparison tests across document complexities
-  - Field position, nesting depth, array size tests
-  - Automated results reporting
-
-### Pending 📋
-
-- **Phase 4: Workloads and Reporting**
-  - Workload definitions (traverse-shallow, traverse-deep, etc.)
-  - Report generators (Console, JSON, CSV, HTML)
-  - CLI commands (run, compare, report, list, validate)
+  - Field position, nesting depth, multi-field tests
+  - E-commerce document real-world scenarios
+  - Automated results reporting with statistical analysis
 
 ## Metrics
 
@@ -212,16 +246,20 @@ com.docbench
 
 ### Test Summary
 
-- **158 unit tests** - Core functionality
-- **17 Oracle integration tests** - SQL/JSON operations
-- **14+ MongoDB integration tests** - BSON operations
-- **14 benchmark comparison tests** - BSON vs OSON
+| Category | Count | Description |
+|----------|-------|-------------|
+| Unit tests | 238 | Core functionality, workloads, reporting |
+| MongoDB integration | 17 | BSON adapter operations |
+| Oracle integration | 17 | SQL/JSON OSON operations |
+| Benchmark comparison | 14 | BSON vs OSON performance |
+| **Total** | **286** | Full test coverage |
 
 ### Code Quality
 
 - **Coverage**: 80%+ line, 70%+ branch
 - **Mutation Score**: 60%+ (PIT)
 - **Java Version**: 21+ (23 recommended)
+- **TDD Methodology**: Red-Green-Refactor cycles
 
 ## License
 

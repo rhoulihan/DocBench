@@ -2,10 +2,21 @@
 # Copy this file to local.properties and update with your credentials
 # DO NOT commit local.properties
 
+# MongoDB configuration
 mongodb.uri=mongodb://username:password@localhost:27017/database
 mongodb.database=testdb
 
 # Oracle configuration (for OSON adapter)
-# oracle.uri=jdbc:oracle:thin:@localhost:1521/FREEPDB1
-# oracle.username=docbench
-# oracle.password=password
+# Requires Oracle Database 21c+ with SODA enabled
+oracle.url=jdbc:oracle:thin:@localhost:1521/FREEPDB1
+oracle.username=docbench
+oracle.password=password
+oracle.database=docbench
+
+# Oracle SODA Setup:
+# 1. Connect as SYSDBA: sqlplus sys as sysdba
+# 2. Grant SODA permissions:
+#    GRANT SODA_APP TO docbench;
+#    GRANT CREATE TABLE TO docbench;
+#    GRANT CREATE PROCEDURE TO docbench;
+# 3. Enable ORDS for SODA (optional, for REST API):
