@@ -40,6 +40,19 @@ O(n) Scaling: Position 1 -> 1000 = BSON time increased 77.8x
 ================================================================================
 ```
 
+### Test Descriptions
+
+| Test | Description | What It Proves |
+|------|-------------|----------------|
+| **Position 1/100** | Access first field in 100-field document | Best case for BSON (minimal scanning) |
+| **Position 50/100** | Access middle field in 100-field document | BSON must skip 49 fields |
+| **Position 100/100** | Access last field in 100-field document | Worst case: BSON scans all 99 prior fields |
+| **Position 500/500** | Access last field in 500-field document | Scaling test with larger document |
+| **Position 1000/1000** | Access last field in 1000-field document | Maximum O(n) penalty for BSON |
+| **Nested depth 1** | Access `level1.value` | Single level of nesting |
+| **Nested depth 3** | Access `level1.level2.level3.value` | Multi-level path traversal |
+| **Nested depth 5** | Access 5-level nested path | Deep nesting compounds O(n) cost |
+
 **Key Findings:**
 - **BSON** (`RawBsonDocument.get`): O(n) sequential scanning—time increases with field position
 - **OSON** (`OracleJsonObject.get`): O(1) hash lookup—constant ~60-150ns regardless of position
