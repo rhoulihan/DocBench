@@ -85,29 +85,38 @@ The `UpdateEfficiencyTest` compares full update cycles (decode → modify → en
 UPDATE CYCLE TESTS:
 Test Case                           BSON (ns)    OSON (ns)      Ratio Winner
 --------------------------------------------------------------------------------
-Update cycle pos 1/100                  13185        11636      1.13x OSON
-Update cycle pos 50/100                 10693        11262      0.95x BSON
-Update cycle pos 100/100                10710        10808      0.99x BSON
-Update cycle pos 500/500                52945        60748      0.87x BSON
+Update cycle pos 1/100                  14025        11144      1.26x OSON
+Update cycle pos 50/100                 10824        10260      1.05x OSON
+Update cycle pos 100/100                11055         9969      1.11x OSON
+Update cycle pos 500/500                51975        62094      0.84x BSON
 
 NESTED UPDATE TESTS:
 Test Case                           BSON (ns)    OSON (ns)      Ratio Winner
 --------------------------------------------------------------------------------
-Nested update depth 1                    2706         2489      1.09x OSON
-Nested update depth 3                    4515         3432      1.32x OSON
-Nested update depth 5                    6768         5257      1.29x OSON
+Nested update depth 1                    3075         3080      1.00x BSON
+Nested update depth 3                    5252         3474      1.51x OSON
+Nested update depth 5                    6787         4568      1.49x OSON
+
+VARIABLE SIZE UPDATE TESTS:
+Test Case                           BSON (ns)    OSON (ns)      Ratio Winner
+--------------------------------------------------------------------------------
+Size change: same size (100→100)        21400        19071      1.12x OSON
+Size change: shrink (100→1)             20697        18420      1.12x OSON
+Size change: grow (100→500)             21292        19211      1.11x OSON
+Size change: grow 10x (100→1000)        21504        18971      1.13x OSON
 
 --------------------------------------------------------------------------------
-OVERALL                               101522       105632      0.96x BSON
+OVERALL                               187886       180262      1.04x OSON
 ================================================================================
 ```
 
 **Key Findings:**
-- Update efficiency is **roughly equal** between BSON and OSON (~1:1 ratio)
-- For nested updates, OSON is **1.1-1.3x faster** due to O(1) navigation
+- OSON is **1.04x faster** overall for update operations
+- For nested updates at depth 3+, OSON is **1.5x faster** due to O(1) navigation
+- Variable size updates show **no significant overhead** for either format
 - BSON: Immutable `RawBsonDocument` requires full decode → `BsonDocument` → modify → re-encode
 - OSON: `OracleJsonObject` supports mutable operations with O(1) field access
-- The dominant cost is serialization, not field location
+- The dominant cost is serialization, which masks any offset recalculation overhead
 
 ## Quick Start
 

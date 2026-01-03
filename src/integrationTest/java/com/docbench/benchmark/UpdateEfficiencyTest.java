@@ -449,6 +449,131 @@ class UpdateEfficiencyTest {
     }
 
     // =========================================================================
+    // Test 3: Variable Size Updates (value size changes)
+    // =========================================================================
+    // When field values change size, BSON must recalculate all subsequent
+    // field offsets during re-serialization. This tests the overhead.
+
+    private static final String ORIGINAL_VALUE = "A".repeat(100);  // 100 chars
+    private static final String SMALLER_VALUE = "X";               // 1 char
+    private static final String LARGER_VALUE = "B".repeat(500);    // 500 chars
+    private static final String SAME_SIZE_VALUE = "C".repeat(100); // 100 chars
+
+    @Test
+    @Order(20)
+    @DisplayName("Variable size - same size update")
+    void variableSize_sameSize() throws SQLException {
+        testVariableSizeUpdate("var-same", SAME_SIZE_VALUE, "same size (100→100)");
+    }
+
+    @Test
+    @Order(21)
+    @DisplayName("Variable size - shrink update")
+    void variableSize_shrink() throws SQLException {
+        testVariableSizeUpdate("var-shrink", SMALLER_VALUE, "shrink (100→1)");
+    }
+
+    @Test
+    @Order(22)
+    @DisplayName("Variable size - grow update")
+    void variableSize_grow() throws SQLException {
+        testVariableSizeUpdate("var-grow", LARGER_VALUE, "grow (100→500)");
+    }
+
+    @Test
+    @Order(23)
+    @DisplayName("Variable size - grow 10x")
+    void variableSize_grow10x() throws SQLException {
+        String largeValue = "D".repeat(1000);  // 1000 chars (10x original)
+        testVariableSizeUpdate("var-grow10x", largeValue, "grow 10x (100→1000)");
+    }
+
+    private void testVariableSizeUpdate(String testId, String newValue, String description) throws SQLException {
+        int totalFields = 100;
+        int targetPosition = 50;  // Middle field - maximizes offset recalculation
+        String targetField = "field_" + String.format("%04d", targetPosition);
+
+        // Create document with 100-char values
+        Document mongoDoc = new Document("_id", testId);
+        StringBuilder oracleJson = new StringBuilder("{");
+        for (int i = 1; i <= totalFields; i++) {
+            String fieldName = "field_" + String.format("%04d", i);
+            mongoDoc.append(fieldName, ORIGINAL_VALUE);
+            if (i > 1) oracleJson.append(",");
+            oracleJson.append("\"").append(fieldName).append("\":\"").append(ORIGINAL_VALUE).append("\"");
+        }
+        oracleJson.append("}");
+
+        docCollection.insertOne(mongoDoc);
+        try (PreparedStatement ps = oracleConnection.prepareStatement(
+                "INSERT INTO " + ORACLE_TABLE + " (id, doc) VALUES (?, ?)")) {
+            ps.setString(1, testId);
+            ps.setString(2, oracleJson.toString());
+            ps.executeUpdate();
+        }
+
+        // Measure BSON variable size update
+        long bsonNanos = measureBsonVariableSizeUpdate(testId, targetField, newValue);
+
+        // Measure OSON variable size update
+        long osonNanos = measureOsonVariableSizeUpdate(testId, targetField, newValue);
+
+        String desc = "Size change: " + description;
+        results.put(testId, new TestResult(testId, desc, bsonNanos, osonNanos, "varsize"));
+
+        System.out.printf("  %-30s: BSON=%8d ns, OSON=%8d ns, Ratio=%6.2fx%n",
+                desc, bsonNanos, osonNanos,
+                (double) bsonNanos / Math.max(1, osonNanos));
+    }
+
+    private long measureBsonVariableSizeUpdate(String docId, String fieldName, String newValue) {
+        RawBsonDocument raw = rawCollection.find(new Document("_id", docId)).first();
+        if (raw == null) throw new RuntimeException("Document not found: " + docId);
+
+        // Warmup
+        for (int i = 0; i < WARMUP_ITERATIONS; i++) {
+            BsonDocument decoded = raw.decode(BSON_CODEC);
+            decoded.put(fieldName, new BsonString(newValue));
+            new RawBsonDocument(decoded, BSON_CODEC);
+        }
+
+        // Measure
+        long totalNanos = 0;
+        for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
+            long start = System.nanoTime();
+            BsonDocument decoded = raw.decode(BSON_CODEC);
+            decoded.put(fieldName, new BsonString(newValue));
+            new RawBsonDocument(decoded, BSON_CODEC);
+            totalNanos += System.nanoTime() - start;
+        }
+
+        return totalNanos / MEASUREMENT_ITERATIONS;
+    }
+
+    private long measureOsonVariableSizeUpdate(String docId, String fieldName, String newValue) throws SQLException {
+        OracleJsonObject original = fetchOracleJsonObject(docId);
+
+        // Warmup
+        for (int i = 0; i < WARMUP_ITERATIONS; i++) {
+            OracleJsonObject mutable = copyToMutable(original);
+            mutable.put(fieldName, jsonFactory.createString(newValue));
+            serializeOsonToBytes(mutable);
+        }
+
+        // Measure
+        long totalNanos = 0;
+        for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
+            long start = System.nanoTime();
+            OracleJsonObject mutable = copyToMutable(original);
+            mutable.put(fieldName, jsonFactory.createString(newValue));
+            serializeOsonToBytes(mutable);
+            totalNanos += System.nanoTime() - start;
+        }
+
+        return totalNanos / MEASUREMENT_ITERATIONS;
+    }
+
+    // =========================================================================
     // Helper Methods
     // =========================================================================
 
