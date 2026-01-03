@@ -85,26 +85,26 @@ The `UpdateEfficiencyTest` compares full update cycles (decode → modify → en
 UPDATE CYCLE TESTS:
 Test Case                           BSON (ns)    OSON (ns)      Ratio Winner
 --------------------------------------------------------------------------------
-Update cycle pos 1/100                  12054        13147      0.92x BSON
-Update cycle pos 50/100                 11873        11312      1.05x OSON
-Update cycle pos 100/100                10982        10377      1.06x OSON
-Update cycle pos 500/500                54259        62997      0.86x BSON
+Update cycle pos 1/100                  13185        11636      1.13x OSON
+Update cycle pos 50/100                 10693        11262      0.95x BSON
+Update cycle pos 100/100                10710        10808      0.99x BSON
+Update cycle pos 500/500                52945        60748      0.87x BSON
 
 NESTED UPDATE TESTS:
 Test Case                           BSON (ns)    OSON (ns)      Ratio Winner
 --------------------------------------------------------------------------------
-Nested update depth 1                    2828         3317      0.85x BSON
-Nested update depth 3                    4754         3555      1.34x OSON
-Nested update depth 5                    7513         4953      1.52x OSON
+Nested update depth 1                    2706         2489      1.09x OSON
+Nested update depth 3                    4515         3432      1.32x OSON
+Nested update depth 5                    6768         5257      1.29x OSON
 
 --------------------------------------------------------------------------------
-OVERALL                               104477       110073      0.95x BSON
+OVERALL                               101522       105632      0.96x BSON
 ================================================================================
 ```
 
 **Key Findings:**
 - Update efficiency is **roughly equal** between BSON and OSON (~1:1 ratio)
-- For nested updates at depth 3+, OSON is **1.3-1.5x faster**
+- For nested updates, OSON is **1.1-1.3x faster** due to O(1) navigation
 - BSON: Immutable `RawBsonDocument` requires full decode → `BsonDocument` → modify → re-encode
 - OSON: `OracleJsonObject` supports mutable operations with O(1) field access
 - The dominant cost is serialization, not field location

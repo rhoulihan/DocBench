@@ -30,12 +30,12 @@ import java.util.*;
  *
  * This test measures the efficiency of modifying document fields:
  * - BSON: RawBsonDocument is immutable, requires decode → modify → encode cycle
- * - OSON: OracleJsonObject can be mutable, supports O(1) field access
+ * - OSON: OracleJsonObject can be mutable, supports in-place modification
  *
  * Test methodology:
  * 1. Fetch document as raw binary format
- * 2. Locate field to update (O(n) vs O(1))
- * 3. Create modified version
+ * 2. Decode/copy to mutable structure
+ * 3. Modify target field
  * 4. Serialize back to bytes
  */
 @DisplayName("BSON vs OSON Update Efficiency")
@@ -164,150 +164,32 @@ class UpdateEfficiencyTest {
     }
 
     // =========================================================================
-    // Test 1: Field Location Cost - Time to find field for update
+    // Test 1: Decode-Modify-Encode Cycle
     // =========================================================================
 
     @Test
     @Order(1)
-    @DisplayName("Field location - position 1")
-    void fieldLocation_position1() throws SQLException {
-        testFieldLocation("loc-1", 100, 1);
-    }
-
-    @Test
-    @Order(2)
-    @DisplayName("Field location - position 50")
-    void fieldLocation_position50() throws SQLException {
-        testFieldLocation("loc-50", 100, 50);
-    }
-
-    @Test
-    @Order(3)
-    @DisplayName("Field location - position 100")
-    void fieldLocation_position100() throws SQLException {
-        testFieldLocation("loc-100", 100, 100);
-    }
-
-    @Test
-    @Order(4)
-    @DisplayName("Field location - position 500")
-    void fieldLocation_position500() throws SQLException {
-        testFieldLocation("loc-500", 500, 500);
-    }
-
-    @Test
-    @Order(5)
-    @DisplayName("Field location - position 1000")
-    void fieldLocation_position1000() throws SQLException {
-        testFieldLocation("loc-1000", 1000, 1000);
-    }
-
-    private void testFieldLocation(String testId, int totalFields, int targetPosition) throws SQLException {
-        String targetField = "field_" + String.format("%04d", targetPosition);
-
-        // Create and insert test document
-        Document mongoDoc = new Document("_id", testId);
-        StringBuilder oracleJson = new StringBuilder("{");
-        for (int i = 1; i <= totalFields; i++) {
-            String fieldName = "field_" + String.format("%04d", i);
-            String value = "value_" + i;
-            mongoDoc.append(fieldName, value);
-            if (i > 1) oracleJson.append(",");
-            oracleJson.append("\"").append(fieldName).append("\":\"").append(value).append("\"");
-        }
-        oracleJson.append("}");
-
-        docCollection.insertOne(mongoDoc);
-        try (PreparedStatement ps = oracleConnection.prepareStatement(
-                "INSERT INTO " + ORACLE_TABLE + " (id, doc) VALUES (?, ?)")) {
-            ps.setString(1, testId);
-            ps.setString(2, oracleJson.toString());
-            ps.executeUpdate();
-        }
-
-        // Measure BSON field location (on decoded BsonDocument)
-        long bsonNanos = measureBsonFieldLocation(testId, targetField);
-
-        // Measure OSON field location
-        long osonNanos = measureOsonFieldLocation(testId, targetField);
-
-        String description = "Locate field " + targetPosition + "/" + totalFields;
-        results.put(testId, new TestResult(testId, description, bsonNanos, osonNanos, "location"));
-
-        System.out.printf("  %-30s: BSON=%8d ns, OSON=%8d ns, Ratio=%6.2fx%n",
-                description, bsonNanos, osonNanos,
-                (double) bsonNanos / Math.max(1, osonNanos));
-    }
-
-    private long measureBsonFieldLocation(String docId, String fieldName) {
-        // Fetch and decode document ONCE
-        RawBsonDocument raw = rawCollection.find(new Document("_id", docId)).first();
-        if (raw == null) throw new RuntimeException("Document not found: " + docId);
-        BsonDocument decoded = raw.decode(BSON_CODEC);
-
-        // Warmup
-        for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-            decoded.get(fieldName);
-        }
-
-        // Measure field location on decoded document
-        long totalNanos = 0;
-        for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
-            long start = System.nanoTime();
-            decoded.get(fieldName);
-            totalNanos += System.nanoTime() - start;
-        }
-
-        return totalNanos / MEASUREMENT_ITERATIONS;
-    }
-
-    private long measureOsonFieldLocation(String docId, String fieldName) throws SQLException {
-        // Fetch document as OracleJsonObject
-        OracleJsonObject jsonObj = fetchOracleJsonObject(docId);
-
-        // Warmup
-        for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-            jsonObj.get(fieldName);
-        }
-
-        // Measure field location
-        long totalNanos = 0;
-        for (int i = 0; i < MEASUREMENT_ITERATIONS; i++) {
-            long start = System.nanoTime();
-            jsonObj.get(fieldName);
-            totalNanos += System.nanoTime() - start;
-        }
-
-        return totalNanos / MEASUREMENT_ITERATIONS;
-    }
-
-    // =========================================================================
-    // Test 2: Decode-Modify-Encode Cycle
-    // =========================================================================
-
-    @Test
-    @Order(10)
     @DisplayName("Update cycle - position 1")
     void updateCycle_position1() throws SQLException {
         testUpdateCycle("upd-1", 100, 1);
     }
 
     @Test
-    @Order(11)
+    @Order(2)
     @DisplayName("Update cycle - position 50")
     void updateCycle_position50() throws SQLException {
         testUpdateCycle("upd-50", 100, 50);
     }
 
     @Test
-    @Order(12)
+    @Order(3)
     @DisplayName("Update cycle - position 100")
     void updateCycle_position100() throws SQLException {
         testUpdateCycle("upd-100", 100, 100);
     }
 
     @Test
-    @Order(13)
+    @Order(4)
     @DisplayName("Update cycle - position 500")
     void updateCycle_position500() throws SQLException {
         testUpdateCycle("upd-500", 500, 500);
@@ -406,25 +288,25 @@ class UpdateEfficiencyTest {
     }
 
     // =========================================================================
-    // Test 3: Nested Field Update
+    // Test 2: Nested Field Update
     // =========================================================================
 
     @Test
-    @Order(20)
+    @Order(10)
     @DisplayName("Nested update - depth 1")
     void nestedUpdate_depth1() throws SQLException {
         testNestedUpdate("nest-1", 1);
     }
 
     @Test
-    @Order(21)
+    @Order(11)
     @DisplayName("Nested update - depth 3")
     void nestedUpdate_depth3() throws SQLException {
         testNestedUpdate("nest-3", 3);
     }
 
     @Test
-    @Order(22)
+    @Order(12)
     @DisplayName("Nested update - depth 5")
     void nestedUpdate_depth5() throws SQLException {
         testNestedUpdate("nest-5", 5);
