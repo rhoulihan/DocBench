@@ -6,11 +6,15 @@ DocBench provides comprehensive benchmarks comparing MongoDB's BSON and Oracle's
 
 1. **Client-Side Field Access**: O(n) vs O(1) algorithmic complexity
 2. **Server-Side Updates**: MongoDB `$set` vs Oracle `JSON_TRANSFORM`
+3. **Deserialization Overhead**: RawBsonDocument vs BsonDocument/Document break-even analysis
 
 ## Table of Contents
 
 - [Latest Results](#latest-results)
 - [Benchmark Details](#benchmark-details)
+  - [Client-Side Field Access](#1-client-side-field-access-on-vs-o1)
+  - [Server-Side Updates](#2-server-side-update-performance)
+  - [Deserialization Overhead](#3-deserialization-overhead-analysis)
 - [Test Environment](#test-environment)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -182,6 +186,136 @@ Appends elements to very large arrays (1MB, 4MB). Tests scalability with array s
 - **OSON partial updates shine at scale**: For large documents (1-4MB), OSON is 2.6-6.7x faster because it modifies only the changed field
 - **Middle-position array operations**: OSON is 3-4x faster for deletes from array middle because it doesn't need to shift elements
 - **MongoDB wins only on large scalar arrays**: Specific optimization for homogeneous scalar array operations
+
+---
+
+### 3. Deserialization Overhead Analysis
+
+**What this measures:** The cost of deserializing `RawBsonDocument` to `BsonDocument` or `Document`, and the break-even point where deserialization overhead is offset by faster O(1) field access.
+
+| Document Type | Deserialization | Field Access | Use Case |
+|---------------|-----------------|--------------|----------|
+| **RawBsonDocument** | None (lazy) | O(n) sequential scan | Few field accesses |
+| **BsonDocument** | One-time cost | O(1) hash lookup | Many field accesses |
+| **Document** | One-time cost | O(1) hash lookup | Many field accesses (simpler API) |
+| **OracleJsonObject** | None needed | O(1) hash lookup | Baseline comparison |
+
+**Why it matters:** MongoDB developers must choose between `RawBsonDocument` (no deserialization cost, but O(n) access) and `Document`/`BsonDocument` (upfront deserialization cost, but O(1) access). This benchmark determines the break-even point.
+
+#### Deserialization Cost
+
+One-time cost to convert `RawBsonDocument` to a parsed document type:
+
+| Document Size | → BsonDocument | → Document |
+|---------------|----------------|------------|
+| 100 fields | 13,727 ns | 13,362 ns |
+| 500 fields | 66,543 ns | 65,722 ns |
+| 1000 fields | 135,866 ns | 129,474 ns |
+
+**Key Finding:** Deserialization cost scales linearly with document size (~130 ns per field).
+
+#### Single Field Access Comparison
+
+Access time for a single field (1000-field document):
+
+| Position | RawBsonDocument | BsonDocument | Document | OracleJsonObject |
+|----------|-----------------|--------------|----------|------------------|
+| First (1/1000) | 155 ns | 30 ns | 30 ns | 103 ns |
+| Middle (500/1000) | 13,041 ns | 19 ns | 18 ns | 82 ns |
+| Last (1000/1000) | 25,871 ns | 22 ns | 22 ns | 68 ns |
+
+**Key Finding:** RawBsonDocument access time scales with field position (O(n)), while parsed documents maintain constant ~20-30 ns (O(1)).
+
+#### Repeated Access Performance
+
+Accessing fields multiple times on the same document (1000-field document, middle position):
+
+| Accesses | RawBsonDocument | BsonDocument | Document | OracleJsonObject |
+|----------|-----------------|--------------|----------|------------------|
+| 5x same field | 66,092 ns | 57 ns | 61 ns | 326 ns |
+| 25x same field | 326,417 ns | 168 ns | 168 ns | 1,348 ns |
+| 100x same field | 1,308,754 ns | 438 ns | 436 ns | 5,665 ns |
+| 5 different fields | 56,319 ns | 155 ns | 130 ns | 353 ns |
+| 25 different fields | 325,121 ns | 143 ns | 122 ns | 1,413 ns |
+| 100 different fields | 1,300,826 ns | 526 ns | 458 ns | 5,834 ns |
+
+#### Break-Even Analysis
+
+Total time including deserialization cost. **Bold** indicates when deserialization pays off vs RawBsonDocument.
+
+##### 100 Fields - Same Field Repeated
+
+| Accesses | RawBsonDocument | BsonDocument | Document | OracleJsonObject | Winner |
+|----------|-----------------|--------------|----------|------------------|--------|
+| 1 | 1,394 ns | 13,149 ns | 13,117 ns | 57 ns | Oracle |
+| 2 | 2,794 ns | 13,079 ns | 13,047 ns | 99 ns | Oracle |
+| 5 | 6,941 ns | 13,093 ns | 13,059 ns | 226 ns | Oracle |
+| **10** | 13,937 ns | **13,116 ns** | **13,082 ns** | 436 ns | Oracle |
+| 25 | 34,945 ns | **13,190 ns** | **13,155 ns** | 1,096 ns | Oracle |
+| 50 | 70,563 ns | **13,328 ns** | **13,272 ns** | 2,266 ns | Oracle |
+| 100 | 140,479 ns | **13,560 ns** | **13,497 ns** | 4,468 ns | Oracle |
+
+##### 100 Fields - Different Fields
+
+| Accesses | RawBsonDocument | BsonDocument | Document | OracleJsonObject | Winner |
+|----------|-----------------|--------------|----------|------------------|--------|
+| 1 | 102 ns | 13,119 ns | 12,867 ns | 58 ns | Oracle |
+| 5 | 5,772 ns | 13,134 ns | 12,884 ns | 239 ns | Oracle |
+| 10 | 12,907 ns | 13,157 ns | 12,911 ns | 487 ns | Oracle |
+| **25** | 34,465 ns | **13,251 ns** | **12,989 ns** | 1,225 ns | Oracle |
+| 50 | 70,871 ns | **13,368 ns** | **13,112 ns** | 2,445 ns | Oracle |
+| 100 | 142,142 ns | **13,618 ns** | **13,346 ns** | 4,759 ns | Oracle |
+
+##### 1000 Fields - Same Field Repeated
+
+| Accesses | RawBsonDocument | BsonDocument | Document | OracleJsonObject | Winner |
+|----------|-----------------|--------------|----------|------------------|--------|
+| 1 | 13,114 ns | 133,960 ns | 131,917 ns | 68 ns | Oracle |
+| 5 | 65,045 ns | 133,976 ns | 131,934 ns | 289 ns | Oracle |
+| **10** | 130,511 ns | **134,007 ns** | **131,959 ns** | 592 ns | Oracle |
+| 25 | 326,473 ns | **134,081 ns** | **132,031 ns** | 1,419 ns | Oracle |
+| 50 | 650,175 ns | **134,230 ns** | **132,161 ns** | 2,904 ns | Oracle |
+| 100 | 1,300,384 ns | **134,442 ns** | **132,370 ns** | 5,667 ns | Oracle |
+
+##### 1000 Fields - Different Fields
+
+| Accesses | RawBsonDocument | BsonDocument | Document | OracleJsonObject | Winner |
+|----------|-----------------|--------------|----------|------------------|--------|
+| 1 | 102 ns | 134,438 ns | 128,766 ns | 58 ns | Oracle |
+| 5 | 52,472 ns | 134,457 ns | 128,783 ns | 302 ns | Oracle |
+| **10** | 118,760 ns | **134,482 ns** | **128,805 ns** | 595 ns | Oracle |
+| 25 | 315,746 ns | **134,572 ns** | **128,880 ns** | 1,484 ns | Oracle |
+| 50 | 643,998 ns | **134,682 ns** | **128,998 ns** | 2,954 ns | Oracle |
+| 100 | 1,301,665 ns | **134,946 ns** | **129,228 ns** | 6,018 ns | Oracle |
+
+#### Nested Document Access
+
+| Depth | RawBsonDocument | BsonDocument | Document | OracleJsonObject |
+|-------|-----------------|--------------|----------|------------------|
+| Deserialization (depth 3) | - | 5,850 ns | 5,631 ns | - |
+| Deserialization (depth 5) | - | 8,439 ns | 8,146 ns | - |
+| Access (depth 3) | 1,099 ns | 52 ns | 49 ns | 172 ns |
+| Access (depth 5) | 1,697 ns | 49 ns | 45 ns | 153 ns |
+
+#### Break-Even Summary
+
+| Document Size | Same Field Pattern | Different Fields Pattern |
+|---------------|-------------------|-------------------------|
+| 100 fields | **10 accesses** | **25 accesses** |
+| 500 fields | **25 accesses** | **25 accesses** |
+| 1000 fields | **10 accesses** | **10 accesses** |
+
+#### Recommendations for MongoDB Developers
+
+| Access Pattern | Recommended Document Type |
+|----------------|---------------------------|
+| < 10 field accesses | `RawBsonDocument` - avoid deserialization overhead |
+| ≥ 10 field accesses | `Document` - O(1) access pays off |
+| Streaming/single-pass | `RawBsonDocument` - minimal memory overhead |
+| Random field access | `Document` - O(1) lookup essential |
+| Field position known to be early | `RawBsonDocument` - O(n) cost is minimal |
+
+**Key Insight:** Oracle OSON always wins because it provides O(1) access without any deserialization cost. For MongoDB, the break-even point is approximately **10-25 field accesses** depending on document size and access pattern.
 
 ---
 
