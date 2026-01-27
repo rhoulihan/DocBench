@@ -7,17 +7,26 @@
 mongodb.uri=mongodb://username:password@localhost:27017/database?replicaSet=rs0
 mongodb.database=testdb
 
-# Oracle configuration (for OSON adapter)
+# Oracle JDBC configuration (for AWR reports and edition detection)
 # Requires Oracle Database 21c+ with SODA enabled
 oracle.url=jdbc:oracle:thin:@localhost:1521/FREEPDB1
 oracle.username=docbench
 oracle.password=password
 oracle.database=docbench
 
-# Oracle SODA Setup:
+# Oracle MongoDB API configuration (for $sql aggregation operator)
+# This enables the $lookup vs $sql benchmark using Oracle's MongoDB-compatible API
+# Port 27018 avoids conflict with native MongoDB on port 27017
+# Connection string format from ORDS: requires authMechanism=PLAIN, authSource=$external
+oracle.mongodb.uri=mongodb://docbench:docbench123@localhost:27018/docbench?authMechanism=PLAIN&authSource=$external&ssl=false&retryWrites=false&loadBalanced=true
+oracle.mongodb.database=docbench
+
+# Oracle Setup:
 # 1. Connect as SYSDBA: sqlplus sys as sysdba
-# 2. Grant SODA permissions:
+# 2. Grant permissions:
 #    GRANT SODA_APP TO docbench;
 #    GRANT CREATE TABLE TO docbench;
 #    GRANT CREATE PROCEDURE TO docbench;
-# 3. Enable ORDS for SODA (optional, for REST API):
+# 3. Enable ORDS MongoDB API (required for $sql aggregation):
+#    See: https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/
+# 4. Configure MongoDB API listener in ORDS

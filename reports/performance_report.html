@@ -232,6 +232,23 @@
 <tr><td>1000 fields, diff</td><td>25</td><td>315,746 ns</td><td>134,572 ns</td><td>128,880 ns</td><td>1,484 ns</td><td class='winner-oracle'>Oracle</td></tr>
 <tr><td>1000 fields, diff</td><td>50</td><td>643,998 ns</td><td>134,682 ns</td><td>128,998 ns</td><td>2,954 ns</td><td class='winner-oracle'>Oracle</td></tr>
 <tr><td>1000 fields, diff</td><td>100</td><td>1,301,665 ns</td><td>134,946 ns</td><td>129,228 ns</td><td>6,018 ns</td><td class='winner-oracle'>Oracle</td></tr>
+</table></div><div class="section">
+    <h2>Deserialization Overhead Analysis</h2>
+    <p class="note">Compares MongoDB document wrapper strategies with Oracle OSON as baseline</p>
+    <h3>Deserialization Cost (one-time)</h3>
+    <table>
+        <tr><th>Document Size</th><th>→ BsonDocument</th><th>→ Document</th></tr>
+</table>    <h3>Single Field Access Time</h3>
+    <table>
+        <tr><th>Position</th><th>RawBson</th><th>BsonDoc</th><th>Document</th><th>Oracle</th></tr>
+</table>    <h3>Break-Even Summary</h3>
+    <div class="summary-box">
+        <p class="note"><strong>Recommendation:</strong> For documents accessed fewer than the break-even point,
+        use RawBsonDocument. For documents accessed more frequently, pre-deserialize to Document.</p>
+    </div>
+    <h3>Detailed Break-Even Analysis</h3>
+    <table>
+        <tr><th>Config</th><th>Accesses</th><th>RawBson</th><th>BsonDoc</th><th>Document</th><th>Oracle</th><th>Winner</th></tr>
 </table></div></div>
 </body>
 </html>

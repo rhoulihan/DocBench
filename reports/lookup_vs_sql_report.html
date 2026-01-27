@@ -27,66 +27,15 @@
     <p class="note">MongoDB $lookup aggregation vs Oracle SQL JOIN with PARALLEL execution</p>
 <div class="summary-box">
     <h2>Executive Summary</h2>
-    <p><span class="metric">MongoDB wins: 0</span> | <span class="metric">Oracle wins: 30</span></p>
-    <p>MongoDB failures due to limits: 2</p>
+    <p><span class="metric">MongoDB wins: 3</span> | <span class="metric">Oracle wins: 0</span></p>
+    <p>MongoDB failures due to limits: 0</p>
 </div>
 <h2>Baseline Join Performance</h2>
 <table>
 <tr><th>Test Case</th><th>MongoDB (ns)</th><th>Oracle (ns)</th><th>Ratio</th><th>Winner</th><th>Notes</th></tr>
-<tr><td>Protocol overhead baseline</td><td>952,298</td><td>404,208</td><td>0.42x</td><td class='winner-oracle'>Oracle</td><td>Empty operations to measure protocol overhead</td></tr>
-<tr><td>Simple FK join - 1K customers</td><td>19,671,961</td><td>488,183</td><td>0.02x</td><td class='winner-oracle'>Oracle</td><td>1000 customers, 10 orders each</td></tr>
-<tr><td>Simple FK join - 10K customers</td><td>170,327,026</td><td>476,451</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>10000 customers, 10 orders each</td></tr>
-<tr><td>Simple FK join - 100K customers</td><td>1,594,538,778</td><td>461,317</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>100000 customers, 10 orders each</td></tr>
-</table>
-<h2>One-to-Many Cardinality</h2>
-<table>
-<tr><th>Test Case</th><th>MongoDB (ns)</th><th>Oracle (ns)</th><th>Ratio</th><th>Winner</th><th>Notes</th></tr>
-<tr><td>1:1 join ratio</td><td>49,359,362</td><td>454,037</td><td>0.01x</td><td class='winner-oracle'>Oracle</td><td>1 order per customer</td></tr>
-<tr><td>1:10 join ratio</td><td>164,473,677</td><td>470,465</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>10 orders per customer</td></tr>
-<tr><td>1:100 join ratio</td><td>112,330,357</td><td>437,397</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>100 orders per customer - MongoDB materializes all</td></tr>
-<tr><td>1:1000 join ratio</td><td>113,582,208</td><td>405,851</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>1000 orders per customer - Memory pressure on MongoDB</td></tr>
-</table>
-<h2>Oracle Parallel Execution</h2>
-<table>
-<tr><th>Test Case</th><th>MongoDB (ns)</th><th>Oracle (ns)</th><th>Ratio</th><th>Winner</th><th>Notes</th></tr>
-<tr><td>Large join - PARALLEL(1)</td><td>1,598,528,708</td><td>438,824</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>Baseline single-threaded execution</td></tr>
-<tr><td>Large join - PARALLEL(2)</td><td>1,626,217,496</td><td>561,125</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>2 parallel worker threads</td></tr>
-</table>
-<h2>Document Size Limit Tests</h2>
-<table>
-<tr><th>Test Case</th><th>MongoDB (ns)</th><th>Oracle (ns)</th><th>Ratio</th><th>Winner</th><th>Notes</th></tr>
-<tr><td>Doc size ~100KB</td><td>750,889</td><td>695,832</td><td>0.93x</td><td class='winner-oracle'>Oracle</td><td>Success</td></tr>
-<tr><td>Doc size ~1MB</td><td>1,336,063</td><td>542,892</td><td>0.41x</td><td class='winner-oracle'>Oracle</td><td>Success</td></tr>
-<tr><td>Doc size ~8MB</td><td>7,897,211</td><td>461,164</td><td>0.06x</td><td class='winner-oracle'>Oracle</td><td>Success</td></tr>
-<tr><td>Doc size ~15MB</td><td>11,377,918</td><td>411,274</td><td>0.04x</td><td class='winner-oracle'>Oracle</td><td>Success</td></tr>
-<tr><td>Doc size ~20MB</td><td><span class='failure'>FAILED</span></td><td>379,118</td><td>FAIL</td><td class='failure'>Oracle</td><td>Expected failure: MongoCommandException</td></tr>
-<tr><td>Doc size ~50MB</td><td><span class='failure'>FAILED</span></td><td>363,554</td><td>FAIL</td><td class='failure'>Oracle</td><td>Expected failure: MongoCommandException</td></tr>
-</table>
-<h2>Aggregation Memory Limit</h2>
-<table>
-<tr><th>Test Case</th><th>MongoDB (ns)</th><th>Oracle (ns)</th><th>Ratio</th><th>Winner</th><th>Notes</th></tr>
-<tr><td>Memory 50MB</td><td>1,439,921,566</td><td>557,586</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>In-memory</td></tr>
-<tr><td>Memory 100MB</td><td>2,710,754,472</td><td>490,708</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>In-memory</td></tr>
-<tr><td>Memory 150MB</td><td>3,933,979,060</td><td>1,065,023</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>UNEXPECTED SUCCESS</td></tr>
-<tr><td>Memory 150MB (disk)</td><td>4,153,058,315</td><td>837,617</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>allowDiskUse=true</td></tr>
-<tr><td>Memory 200MB (disk)</td><td>5,580,629,419</td><td>847,949</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>allowDiskUse=true</td></tr>
-<tr><td>Memory 500MB (disk)</td><td>14,151,855,044</td><td>540,361</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>allowDiskUse=true</td></tr>
-</table>
-<h2>Sort Spillover Tests</h2>
-<table>
-<tr><th>Test Case</th><th>MongoDB (ns)</th><th>Oracle (ns)</th><th>Ratio</th><th>Winner</th><th>Notes</th></tr>
-<tr><td>Sort 10K docs</td><td>45,980,364</td><td>560,369</td><td>0.01x</td><td class='winner-oracle'>Oracle</td><td>allowDiskUse=true for MongoDB, PARALLEL for Oracle</td></tr>
-<tr><td>Sort 100K docs</td><td>478,905,298</td><td>609,351</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>allowDiskUse=true for MongoDB, PARALLEL for Oracle</td></tr>
-<tr><td>Sort 500K docs</td><td>2,761,341,073</td><td>1,213,354</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>allowDiskUse=true for MongoDB, PARALLEL for Oracle</td></tr>
-<tr><td>Sort 1M docs</td><td>5,338,147,693</td><td>851,969</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>allowDiskUse=true for MongoDB, PARALLEL for Oracle</td></tr>
-</table>
-<h2>Multi-Stage Pipeline</h2>
-<table>
-<tr><th>Test Case</th><th>MongoDB (ns)</th><th>Oracle (ns)</th><th>Ratio</th><th>Winner</th><th>Notes</th></tr>
-<tr><td>2-stage: $lookup -> $sort</td><td>341,429,578</td><td>500,506</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>2 potential spill points</td></tr>
-<tr><td>3-stage: $lookup -> $unwind -> $group</td><td>313,897,658</td><td>878,426</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>3 potential spill points</td></tr>
-<tr><td>4-stage: $lookup -> $unwind -> $group -> $sort</td><td>312,870,459</td><td>524,742</td><td>0.00x</td><td class='winner-oracle'>Oracle</td><td>4 potential spill points</td></tr>
-<tr><td>Chained: $lookup -> $lookup</td><td>19,831,001</td><td>860,545</td><td>0.04x</td><td class='winner-oracle'>Oracle</td><td>Nested materialization in MongoDB</td></tr>
+<tr><td>Simple FK join - 1K customers</td><td>21,319,240</td><td>116,346,189</td><td>5.46x</td><td class='winner-mongo'>MongoDB</td><td>1000 customers, 10 orders each</td></tr>
+<tr><td>Simple FK join - 10K customers</td><td>166,444,828</td><td>1,063,029,559</td><td>6.39x</td><td class='winner-mongo'>MongoDB</td><td>10000 customers, 10 orders each</td></tr>
+<tr><td>Simple FK join - 100K customers</td><td>1,657,485,434</td><td>9,812,765,513</td><td>5.92x</td><td class='winner-mongo'>MongoDB</td><td>100000 customers, 10 orders each</td></tr>
 </table>
 <div class="note" style="margin-top: 40px; text-align: center;">
     Generated by DocBench - $lookup vs SQL JOIN Benchmark Suite

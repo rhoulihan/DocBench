@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Triple Comparison Benchmark Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #eee;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 40px;
+        }
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .chart-title {
+            color: #00d4ff;
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+        }
+        canvas {
+            max-height: 400px;
+        }
+        .legend-custom {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .summary-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .summary-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1em;
+            color: #888;
+        }
+        .summary-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+        .mongo-color { color: #4ade80; }
+        .oracle-api-color { color: #f59e0b; }
+        .oracle-jdbc-color { color: #3b82f6; }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🚀 Triple Comparison Benchmark</h1>
+    <p class="subtitle">MongoDB Native vs Oracle MongoDB API vs Oracle JDBC</p>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <h3>MongoDB Native</h3>
+            <div class="value mongo-color">$lookup</div>
+        </div>
+        <div class="summary-card">
+            <h3>Oracle MongoDB API</h3>
+            <div class="value oracle-api-color">$sql</div>
+        </div>
+        <div class="summary-card">
+            <h3>Oracle JDBC</h3>
+            <div class="value oracle-jdbc-color">SQL JOIN</div>
+        </div>
+    </div>
+<div class="chart-container">
+<h2 class="chart-title">Join Performance by Scale</h2>
+<canvas id="chart0"></canvas>
+</div>
+<div class="chart-container">
+<h2 class="chart-title">Join Performance by Cardinality</h2>
+<canvas id="chart1"></canvas>
+</div>
+<div class="chart-container">
+<h2 class="chart-title">Sort Performance</h2>
+<canvas id="chart2"></canvas>
+</div>
+<div class="chart-container">
+<h2 class="chart-title">Aggregation Performance</h2>
+<canvas id="chart3"></canvas>
+</div>
+<script>
+new Chart(document.getElementById('chart0'), {
+    type: 'line',
+    data: {
+        labels: ['100 customers','500 customers','1000 customers','2000 customers','5000 customers','10000 customers'],
+        datasets: [
+            {
+                label: 'MongoDB Native',
+                data: [4.043258,9.330752,15.288954,28.389419,68.720732,146.133222],
+                borderColor: '#4ade80',
+                backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle MongoDB API',
+                data: [13.733695,51.317857,91.192584,172.530693,400.266304,769.6103],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle JDBC',
+                data: [18.848777,74.47397,135.83749,257.931373,639.14583,1288.647476],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                labels: { color: '#eee', font: { size: 14 } }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' }
+            },
+            y: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' },
+                title: {
+                    display: true,
+                    text: 'Time (milliseconds)',
+                    color: '#aaa'
+                }
+            }
+        }
+    }
+});
+new Chart(document.getElementById('chart1'), {
+    type: 'line',
+    data: {
+        labels: ['1:1','1:5','1:10','1:25','1:50','1:100'],
+        datasets: [
+            {
+                label: 'MongoDB Native',
+                data: [5.626188,9.474969,14.842009,27.921478,51.561336,113.861348],
+                borderColor: '#4ade80',
+                backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle MongoDB API',
+                data: [9.762813,41.283623,81.894881,79.248152,79.427541,79.279204],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle JDBC',
+                data: [14.97142,63.865007,134.330055,129.203705,128.725355,128.792023],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                labels: { color: '#eee', font: { size: 14 } }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' }
+            },
+            y: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' },
+                title: {
+                    display: true,
+                    text: 'Time (milliseconds)',
+                    color: '#aaa'
+                }
+            }
+        }
+    }
+});
+new Chart(document.getElementById('chart2'), {
+    type: 'line',
+    data: {
+        labels: ['1000 docs','5000 docs','10000 docs','25000 docs','50000 docs','100000 docs'],
+        datasets: [
+            {
+                label: 'MongoDB Native',
+                data: [1.58305,3.938367,7.317097,19.218611,42.118049,77.306718],
+                borderColor: '#4ade80',
+                backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle MongoDB API',
+                data: [4.548803,16.516098,31.902118,76.623851,156.272904,302.101277],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle JDBC',
+                data: [8.433082,40.22318,78.609756,198.474061,387.199024,796.210195],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                labels: { color: '#eee', font: { size: 14 } }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' }
+            },
+            y: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' },
+                title: {
+                    display: true,
+                    text: 'Time (milliseconds)',
+                    color: '#aaa'
+                }
+            }
+        }
+    }
+});
+new Chart(document.getElementById('chart3'), {
+    type: 'line',
+    data: {
+        labels: ['100 customers','500 customers','1000 customers','2000 customers','5000 customers'],
+        datasets: [
+            {
+                label: 'MongoDB Native',
+                data: [4.53665,21.476748,41.83261,83.607479,202.092338],
+                borderColor: '#4ade80',
+                backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle MongoDB API',
+                data: [2.006565,7.018884,11.363675,21.310586,51.663125],
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            },
+            {
+                label: 'Oracle JDBC',
+                data: [4.237078,18.433268,32.924365,64.427701,164.729912],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                labels: { color: '#eee', font: { size: 14 } }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' }
+            },
+            y: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.1)' },
+                title: {
+                    display: true,
+                    text: 'Time (milliseconds)',
+                    color: '#aaa'
+                }
+            }
+        }
+    }
+});
+</script>
+    <div class="footer">
+        Generated by DocBench Triple Comparison Benchmark<br>
+        MongoDB $lookup vs Oracle $sql (MongoDB API) vs Oracle SQL JOIN (JDBC)
+    </div>
+</div>
+</body>
+</html>

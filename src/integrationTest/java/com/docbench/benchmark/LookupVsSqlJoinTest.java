@@ -184,7 +184,7 @@ class LookupVsSqlJoinTest {
             oraConn.setStatementCacheSize(50);
         }
 
-        // Create Oracle tables for JDBC mode
+        // Create Oracle tables for JDBC mode (uses 'data' column to match MongoDB API format)
         createOracleTables();
 
         // Detect Oracle edition
@@ -326,17 +326,17 @@ class LookupVsSqlJoinTest {
             stmt.execute("BEGIN EXECUTE IMMEDIATE 'DROP TABLE " + CUSTOMERS_COLLECTION + " PURGE'; EXCEPTION WHEN OTHERS THEN NULL; END;");
             stmt.execute("BEGIN EXECUTE IMMEDIATE 'DROP TABLE " + PRODUCTS_COLLECTION + " PURGE'; EXCEPTION WHEN OTHERS THEN NULL; END;");
 
-            // Create tables with JSON columns
-            stmt.execute("CREATE TABLE " + CUSTOMERS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, doc JSON)");
-            stmt.execute("CREATE TABLE " + ORDERS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, doc JSON)");
-            stmt.execute("CREATE TABLE " + PRODUCTS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, doc JSON)");
-            stmt.execute("CREATE TABLE " + LARGE_ORDERS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, doc JSON)");
+            // Create tables with JSON columns - use 'data' column to match MongoDB API format
+            stmt.execute("CREATE TABLE " + CUSTOMERS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, data JSON)");
+            stmt.execute("CREATE TABLE " + ORDERS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, data JSON)");
+            stmt.execute("CREATE TABLE " + PRODUCTS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, data JSON)");
+            stmt.execute("CREATE TABLE " + LARGE_ORDERS_COLLECTION + " (id VARCHAR2(100) PRIMARY KEY, data JSON)");
 
             // Create indexes for join performance
             stmt.execute("CREATE INDEX idx_orders_cust ON " + ORDERS_COLLECTION +
-                    " (JSON_VALUE(doc, '$.customer_id'))");
+                    " (JSON_VALUE(data, '$.customer_id'))");
             stmt.execute("CREATE INDEX idx_large_orders_cust ON " + LARGE_ORDERS_COLLECTION +
-                    " (JSON_VALUE(doc, '$.customer_id'))");
+                    " (JSON_VALUE(data, '$.customer_id'))");
         }
     }
 
@@ -421,29 +421,30 @@ class LookupVsSqlJoinTest {
         int ordersPerCustomer = 10;
         generateTestData(customerCount, ordersPerCustomer);
 
-        // Warmup
+        // Warmup all three modes
         for (int i = 0; i < WARMUP_ITERATIONS; i++) {
             runMongoLookup(100);
-            runOracleSqlJoin(100, 1);
+            if (useOracleMongoApi) runOracleApiJoin(100, 1);
+            runOracleJdbcJoin(100, 1);
         }
 
-        // Measure MongoDB $lookup
+        // Measure all three modes
         long mongoNanos = measureMongoLookup(customerCount);
+        long oracleApiNanos = useOracleMongoApi ? measureOracleJoinMongoApi(customerCount, 1) : -1;
+        long oracleJdbcNanos = measureOracleJoinJdbc(customerCount, 1);
 
-        // Measure Oracle JOIN
-        long oracleNanos = measureOracleJoin(customerCount, 1);
-
+        // Store best Oracle result for compatibility
+        long bestOracleNanos = oracleApiNanos > 0 ? Math.min(oracleApiNanos, oracleJdbcNanos) : oracleJdbcNanos;
         results.put("A1_simple_1K", new TestResult(
                 "A1_simple_1K",
                 "Simple FK join - 1K customers",
                 mongoNanos,
-                oracleNanos,
+                bestOracleNanos,
                 "baseline",
                 customerCount + " customers, " + ordersPerCustomer + " orders each"
         ));
 
-        System.out.printf("  A1: Simple join 1K         - MongoDB: %,12d ns | Oracle: %,12d ns%n",
-                mongoNanos, oracleNanos);
+        printTripleResult("A1: Simple join 1K", mongoNanos, oracleApiNanos, oracleJdbcNanos);
 
         awrSnapshotAfter("A1_simple_1K");
     }
@@ -458,26 +459,29 @@ class LookupVsSqlJoinTest {
         int ordersPerCustomer = 10;
         generateTestData(customerCount, ordersPerCustomer);
 
-        // Warmup
+        // Warmup all three modes
         for (int i = 0; i < WARMUP_ITERATIONS; i++) {
             runMongoLookup(1000);
-            runOracleSqlJoin(1000, 1);
+            if (useOracleMongoApi) runOracleApiJoin(1000, 1);
+            runOracleJdbcJoin(1000, 1);
         }
 
+        // Measure all three modes
         long mongoNanos = measureMongoLookup(customerCount);
-        long oracleNanos = measureOracleJoin(customerCount, 1);
+        long oracleApiNanos = useOracleMongoApi ? measureOracleJoinMongoApi(customerCount, 1) : -1;
+        long oracleJdbcNanos = measureOracleJoinJdbc(customerCount, 1);
 
+        long bestOracleNanos = oracleApiNanos > 0 ? Math.min(oracleApiNanos, oracleJdbcNanos) : oracleJdbcNanos;
         results.put("A2_simple_10K", new TestResult(
                 "A2_simple_10K",
                 "Simple FK join - 10K customers",
                 mongoNanos,
-                oracleNanos,
+                bestOracleNanos,
                 "baseline",
                 customerCount + " customers, " + ordersPerCustomer + " orders each"
         ));
 
-        System.out.printf("  A2: Simple join 10K        - MongoDB: %,12d ns | Oracle: %,12d ns%n",
-                mongoNanos, oracleNanos);
+        printTripleResult("A2: Simple join 10K", mongoNanos, oracleApiNanos, oracleJdbcNanos);
 
         awrSnapshotAfter("A2_simple_10K");
     }
@@ -492,26 +496,29 @@ class LookupVsSqlJoinTest {
         int ordersPerCustomer = 10;
         generateTestData(customerCount, ordersPerCustomer);
 
-        // Warmup
+        // Warmup all three modes
         for (int i = 0; i < WARMUP_ITERATIONS; i++) {
             runMongoLookup(10000);
-            runOracleSqlJoin(10000, 1);
+            if (useOracleMongoApi) runOracleApiJoin(10000, 1);
+            runOracleJdbcJoin(10000, 1);
         }
 
+        // Measure all three modes
         long mongoNanos = measureMongoLookup(customerCount);
-        long oracleNanos = measureOracleJoin(customerCount, 1);
+        long oracleApiNanos = useOracleMongoApi ? measureOracleJoinMongoApi(customerCount, 1) : -1;
+        long oracleJdbcNanos = measureOracleJoinJdbc(customerCount, 1);
 
+        long bestOracleNanos = oracleApiNanos > 0 ? Math.min(oracleApiNanos, oracleJdbcNanos) : oracleJdbcNanos;
         results.put("A3_simple_100K", new TestResult(
                 "A3_simple_100K",
                 "Simple FK join - 100K customers",
                 mongoNanos,
-                oracleNanos,
+                bestOracleNanos,
                 "baseline",
                 customerCount + " customers, " + ordersPerCustomer + " orders each"
         ));
 
-        System.out.printf("  A3: Simple join 100K       - MongoDB: %,12d ns | Oracle: %,12d ns%n",
-                mongoNanos, oracleNanos);
+        printTripleResult("A3: Simple join 100K", mongoNanos, oracleApiNanos, oracleJdbcNanos);
 
         awrSnapshotAfter("A3_simple_100K");
     }
@@ -1124,6 +1131,14 @@ class LookupVsSqlJoinTest {
             oracleOrdersCollection = oracleMongoDatabase.getCollection(ORDERS_COLLECTION);
         }
 
+        // Clear existing data - Oracle JDBC
+        try (Statement stmt = oracleJdbcConnection.createStatement()) {
+            stmt.execute("TRUNCATE TABLE " + CUSTOMERS_COLLECTION);
+            stmt.execute("TRUNCATE TABLE " + ORDERS_COLLECTION);
+        } catch (SQLException e) {
+            // Tables might not exist yet, ignore
+        }
+
         // Generate customers
         List<Document> customerDocs = new ArrayList<>();
         String[] regions = {"NORTH", "SOUTH", "EAST", "WEST"};
@@ -1144,6 +1159,7 @@ class LookupVsSqlJoinTest {
                 if (oracleCustomersCollection != null) {
                     oracleCustomersCollection.insertMany(new ArrayList<>(customerDocs));
                 }
+                insertCustomersJdbc(customerDocs);
                 customerDocs.clear();
             }
         }
@@ -1154,6 +1170,7 @@ class LookupVsSqlJoinTest {
             if (oracleCustomersCollection != null) {
                 oracleCustomersCollection.insertMany(new ArrayList<>(customerDocs));
             }
+            insertCustomersJdbc(customerDocs);
         }
 
         // Generate orders
@@ -1181,6 +1198,7 @@ class LookupVsSqlJoinTest {
                     if (oracleOrdersCollection != null) {
                         oracleOrdersCollection.insertMany(new ArrayList<>(orderDocs));
                     }
+                    insertOrdersJdbc(orderDocs);
                     orderDocs.clear();
                 }
             }
@@ -1192,6 +1210,7 @@ class LookupVsSqlJoinTest {
             if (oracleOrdersCollection != null) {
                 oracleOrdersCollection.insertMany(new ArrayList<>(orderDocs));
             }
+            insertOrdersJdbc(orderDocs);
         }
 
         // Create indexes for MongoDB native
@@ -1202,6 +1221,34 @@ class LookupVsSqlJoinTest {
             try {
                 oracleOrdersCollection.createIndex(new Document("customer_id", 1));
             } catch (Exception ignored) {}
+        }
+    }
+
+    private void insertCustomersJdbc(List<Document> docs) {
+        String sql = "INSERT INTO " + CUSTOMERS_COLLECTION + " (id, data) VALUES (?, ?)";
+        try (PreparedStatement ps = oracleJdbcConnection.prepareStatement(sql)) {
+            for (Document doc : docs) {
+                ps.setString(1, doc.getString("_id"));
+                ps.setString(2, doc.toJson());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to insert customers via JDBC", e);
+        }
+    }
+
+    private void insertOrdersJdbc(List<Document> docs) {
+        String sql = "INSERT INTO " + ORDERS_COLLECTION + " (id, data) VALUES (?, ?)";
+        try (PreparedStatement ps = oracleJdbcConnection.prepareStatement(sql)) {
+            for (Document doc : docs) {
+                ps.setString(1, doc.getString("_id"));
+                ps.setString(2, doc.toJson());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to insert orders via JDBC", e);
         }
     }
 
@@ -1576,8 +1623,8 @@ class LookupVsSqlJoinTest {
                 ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") */"
                 : "";
 
-        String sql = "SELECT " + hint + " c.doc, o.doc FROM " + CUSTOMERS_COLLECTION + " c " +
-                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.doc, '$._id') = JSON_VALUE(o.doc, '$.customer_id') " +
+        String sql = "SELECT " + hint + " c.data, o.data FROM " + CUSTOMERS_COLLECTION + " c " +
+                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
                 "WHERE ROWNUM <= ?";
 
         try {
@@ -1622,33 +1669,46 @@ class LookupVsSqlJoinTest {
 
     private void runOracleSqlJoin(int limit, int parallelDegree) {
         if (useOracleMongoApi) {
-            // Oracle MongoDB API $sql: Only single column SELECT works with JOINs
-            String sql = "SELECT JSON_MERGEPATCH(c.data, o.data) FROM " + CUSTOMERS_COLLECTION + " c " +
-                    "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
-                    "WHERE ROWNUM <= " + (limit * 10);
-            List<Document> pipeline = Arrays.asList(buildSqlAggregationStage(sql));
-            for (Document doc : oracleCustomersCollection.aggregate(pipeline)) {}
+            runOracleApiJoin(limit, parallelDegree);
         } else {
-            try {
-                String hint = parallelDegree > 1
-                        ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") */"
-                        : "";
-                String sql = "SELECT " + hint + " c.doc, o.doc FROM " + CUSTOMERS_COLLECTION + " c " +
-                        "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.doc, '$._id') = JSON_VALUE(o.doc, '$.customer_id') " +
-                        "WHERE ROWNUM <= ?";
-                try (PreparedStatement ps = oracleJdbcConnection.prepareStatement(sql)) {
-                    ps.setInt(1, limit * 10);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            rs.getString(1);
-                            rs.getString(2);
-                        }
+            runOracleJdbcJoin(limit, parallelDegree);
+        }
+    }
+
+    private void runOracleApiJoin(int limit, int parallelDegree) {
+        String sql = "SELECT JSON_MERGEPATCH(c.data, o.data) FROM " + CUSTOMERS_COLLECTION + " c " +
+                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
+                "WHERE ROWNUM <= " + (limit * 10);
+        List<Document> pipeline = Arrays.asList(buildSqlAggregationStage(sql));
+        for (Document doc : oracleCustomersCollection.aggregate(pipeline)) {}
+    }
+
+    private void runOracleJdbcJoin(int limit, int parallelDegree) {
+        try {
+            String hint = parallelDegree > 1
+                    ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") */"
+                    : "";
+            String sql = "SELECT " + hint + " c.data, o.data FROM " + CUSTOMERS_COLLECTION + " c " +
+                    "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
+                    "WHERE ROWNUM <= ?";
+            try (PreparedStatement ps = oracleJdbcConnection.prepareStatement(sql)) {
+                ps.setInt(1, limit * 10);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        rs.getString(1);
+                        rs.getString(2);
                     }
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Oracle JDBC error", e);
             }
+        } catch (SQLException e) {
+            throw new RuntimeException("Oracle JDBC error", e);
         }
+    }
+
+    private void printTripleResult(String testName, long mongoNanos, long oracleApiNanos, long oracleJdbcNanos) {
+        String oracleApiStr = oracleApiNanos >= 0 ? String.format("%,12d", oracleApiNanos) : "         N/A";
+        System.out.printf("  %-24s - MongoDB: %,12d ns | Oracle API: %s ns | Oracle JDBC: %,12d ns%n",
+                testName, mongoNanos, oracleApiStr, oracleJdbcNanos);
     }
 
     /**
@@ -1667,8 +1727,8 @@ class LookupVsSqlJoinTest {
                 ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") */"
                 : "";
 
-        String sql = "SELECT " + hint + " c.doc, o.doc FROM " + CUSTOMERS_COLLECTION + " c " +
-                "JOIN " + LARGE_ORDERS_COLLECTION + " o ON JSON_VALUE(c.doc, '$._id') = JSON_VALUE(o.doc, '$.customer_id') " +
+        String sql = "SELECT " + hint + " c.data, o.data FROM " + CUSTOMERS_COLLECTION + " c " +
+                "JOIN " + LARGE_ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
                 "WHERE ROWNUM <= ?";
 
         try {
@@ -1725,10 +1785,10 @@ class LookupVsSqlJoinTest {
                 ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") */"
                 : "";
 
-        String sql = "SELECT " + hint + " c.doc, o.doc FROM " + CUSTOMERS_COLLECTION + " c " +
-                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.doc, '$._id') = JSON_VALUE(o.doc, '$.customer_id') " +
+        String sql = "SELECT " + hint + " c.data, o.data FROM " + CUSTOMERS_COLLECTION + " c " +
+                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
                 "WHERE ROWNUM <= ? " +
-                "ORDER BY JSON_VALUE(o.doc, '$.total' RETURNING NUMBER) DESC";
+                "ORDER BY JSON_VALUE(o.data, '$.total' RETURNING NUMBER) DESC";
 
         try {
             long totalNanos = 0;
@@ -1784,13 +1844,13 @@ class LookupVsSqlJoinTest {
                 ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") */"
                 : "";
 
-        String sql = "SELECT " + hint + " JSON_VALUE(c.doc, '$._id') as customer_id, " +
-                "SUM(JSON_VALUE(o.doc, '$.total' RETURNING NUMBER)) as total_spent, " +
+        String sql = "SELECT " + hint + " JSON_VALUE(c.data, '$._id') as customer_id, " +
+                "SUM(JSON_VALUE(o.data, '$.total' RETURNING NUMBER)) as total_spent, " +
                 "COUNT(*) as order_count " +
                 "FROM " + CUSTOMERS_COLLECTION + " c " +
-                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.doc, '$._id') = JSON_VALUE(o.doc, '$.customer_id') " +
+                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
                 "WHERE ROWNUM <= ? " +
-                "GROUP BY JSON_VALUE(c.doc, '$._id')";
+                "GROUP BY JSON_VALUE(c.data, '$._id')";
 
         try {
             long totalNanos = 0;
@@ -1850,13 +1910,13 @@ class LookupVsSqlJoinTest {
                 ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") */"
                 : "";
 
-        String sql = "SELECT " + hint + " JSON_VALUE(c.doc, '$._id') as customer_id, " +
-                "SUM(JSON_VALUE(o.doc, '$.total' RETURNING NUMBER)) as total_spent, " +
+        String sql = "SELECT " + hint + " JSON_VALUE(c.data, '$._id') as customer_id, " +
+                "SUM(JSON_VALUE(o.data, '$.total' RETURNING NUMBER)) as total_spent, " +
                 "COUNT(*) as order_count " +
                 "FROM " + CUSTOMERS_COLLECTION + " c " +
-                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.doc, '$._id') = JSON_VALUE(o.doc, '$.customer_id') " +
+                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
                 "WHERE ROWNUM <= ? " +
-                "GROUP BY JSON_VALUE(c.doc, '$._id') ORDER BY total_spent DESC";
+                "GROUP BY JSON_VALUE(c.data, '$._id') ORDER BY total_spent DESC";
 
         try {
             long totalNanos = 0;
@@ -1917,10 +1977,10 @@ class LookupVsSqlJoinTest {
                 ? "/*+ PARALLEL(c, " + parallelDegree + ") PARALLEL(o, " + parallelDegree + ") PARALLEL(p, " + parallelDegree + ") */"
                 : "";
 
-        String sql = "SELECT " + hint + " c.doc, o.doc, p.doc " +
+        String sql = "SELECT " + hint + " c.data, o.data, p.data " +
                 "FROM " + CUSTOMERS_COLLECTION + " c " +
-                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.doc, '$._id') = JSON_VALUE(o.doc, '$.customer_id') " +
-                "LEFT JOIN " + PRODUCTS_COLLECTION + " p ON JSON_VALUE(o.doc, '$.product_id') = JSON_VALUE(p.doc, '$._id') " +
+                "JOIN " + ORDERS_COLLECTION + " o ON JSON_VALUE(c.data, '$._id') = JSON_VALUE(o.data, '$.customer_id') " +
+                "LEFT JOIN " + PRODUCTS_COLLECTION + " p ON JSON_VALUE(o.data, '$.product_id') = JSON_VALUE(p.data, '$._id') " +
                 "WHERE ROWNUM <= ?";
 
         try {
