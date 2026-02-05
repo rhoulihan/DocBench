@@ -1,32 +1,102 @@
-# Local configuration template
+# =============================================================================
+# DocBench Local Configuration Template
+# =============================================================================
 # Copy this file to local.properties and update with your credentials
-# DO NOT commit local.properties
+# DO NOT commit local.properties (it is in .gitignore)
+#
+# For Oracle team: Configure the connection strings below to match your
+# environment, then run: ./gradlew integrationTest --rerun-tasks
+# =============================================================================
 
-# MongoDB configuration
-# Use replicaSet parameter for production-like durability testing (j:true support)
-mongodb.uri=mongodb://username:password@localhost:27017/database?replicaSet=rs0
+# -----------------------------------------------------------------------------
+# MongoDB Configuration
+# -----------------------------------------------------------------------------
+# MongoDB must be configured as a single-member replica set for:
+#   - Durability parity with Oracle (j:true write concern support)
+#   - Production-like configuration
+#
+# Connection string format:
+#   mongodb://[username:password@]host:port/database?replicaSet=rs0[&authSource=admin]
+#
+# IMPORTANT: Include ?replicaSet=rs0 to enable j:true write concern
+
+mongodb.uri=mongodb://localhost:27017/testdb?replicaSet=rs0
 mongodb.database=testdb
 
-# Oracle JDBC configuration (for AWR reports and edition detection)
-# Requires Oracle Database 21c+ with SODA enabled
+# With authentication (if MongoDB auth is enabled):
+# mongodb.uri=mongodb://username:password@localhost:27017/testdb?replicaSet=rs0&authSource=admin
+
+# -----------------------------------------------------------------------------
+# Oracle JDBC Configuration
+# -----------------------------------------------------------------------------
+# Required for:
+#   - AWR report generation
+#   - Oracle edition detection (Free vs Enterprise)
+#   - Direct SQL benchmark tests (LookupVsSqlJoinTest)
+#   - Table/index statistics gathering
+#
+# Connection URL format:
+#   jdbc:oracle:thin:@hostname:port/service_name
+
 oracle.url=jdbc:oracle:thin:@localhost:1521/FREEPDB1
 oracle.username=docbench
-oracle.password=password
-oracle.database=docbench
+oracle.password=docbench123
 
-# Oracle MongoDB API configuration (for $sql aggregation operator)
-# This enables the $lookup vs $sql benchmark using Oracle's MongoDB-compatible API
+# For Oracle Autonomous Database (cloud):
+# oracle.url=jdbc:oracle:thin:@(description=(retry_count=20)(retry_delay=3)(address=(protocol=tcps)(port=1522)(host=adb.region.oraclecloud.com))(connect_data=(service_name=xxx_adb_high.adb.oraclecloud.com))(security=(ssl_server_dn_match=yes)))
+
+# -----------------------------------------------------------------------------
+# Oracle MongoDB API Configuration (Optional)
+# -----------------------------------------------------------------------------
+# Required for:
+#   - $sql aggregation operator tests
+#   - MongoDB wire protocol compatibility tests
+#
+# This uses ORDS (Oracle REST Data Services) MongoDB API listener
 # Port 27018 avoids conflict with native MongoDB on port 27017
-# Connection string format from ORDS: requires authMechanism=PLAIN, authSource=$external
+#
+# Connection string format (ORDS-specific requirements):
+#   - authMechanism=PLAIN (database authentication)
+#   - authSource=$external (external auth source)
+#   - loadBalanced=true (ORDS load balancer mode)
+#   - retryWrites=false (not supported by ORDS)
+#   - ssl=false (unless ORDS is configured with TLS)
+
 oracle.mongodb.uri=mongodb://docbench:docbench123@localhost:27018/docbench?authMechanism=PLAIN&authSource=$external&ssl=false&retryWrites=false&loadBalanced=true
 oracle.mongodb.database=docbench
 
-# Oracle Setup:
-# 1. Connect as SYSDBA: sqlplus sys as sysdba
-# 2. Grant permissions:
-#    GRANT SODA_APP TO docbench;
-#    GRANT CREATE TABLE TO docbench;
-#    GRANT CREATE PROCEDURE TO docbench;
-# 3. Enable ORDS MongoDB API (required for $sql aggregation):
-#    See: https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/
-# 4. Configure MongoDB API listener in ORDS
+# -----------------------------------------------------------------------------
+# Required Oracle User Privileges
+# -----------------------------------------------------------------------------
+# Connect as SYSDBA and run:
+#
+# ALTER SESSION SET CONTAINER = FREEPDB1;
+#
+# CREATE USER docbench IDENTIFIED BY docbench123
+#   DEFAULT TABLESPACE users
+#   QUOTA UNLIMITED ON users;
+#
+# -- Basic privileges
+# GRANT CONNECT, RESOURCE TO docbench;
+# GRANT CREATE SESSION, CREATE TABLE, CREATE PROCEDURE TO docbench;
+#
+# -- JSON/SODA privileges
+# GRANT SODA_APP TO docbench;
+#
+# -- AWR report privileges
+# GRANT SELECT ON V_$INSTANCE TO docbench;
+# GRANT SELECT ON V_$DATABASE TO docbench;
+# GRANT SELECT ON V_$SESSION TO docbench;
+# GRANT SELECT ON V_$SQLAREA TO docbench;
+# GRANT EXECUTE ON DBMS_WORKLOAD_REPOSITORY TO docbench;
+#
+# -----------------------------------------------------------------------------
+# ORDS MongoDB API Setup (for oracle.mongodb.* properties)
+# -----------------------------------------------------------------------------
+# See: https://docs.oracle.com/en/database/oracle/oracle-rest-data-services/
+#
+# 1. Install and configure ORDS
+# 2. Enable MongoDB API listener on port 27018:
+#    ords config set mongo.enabled true
+#    ords config set mongo.port 27018
+# 3. Restart ORDS
