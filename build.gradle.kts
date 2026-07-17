@@ -57,8 +57,16 @@ tasks.register<Test>("integrationTest") {
     testClassesDirs = sourceSets["integrationTest"].output.classesDirs
     classpath = sourceSets["integrationTest"].runtimeClasspath
     useJUnitPlatform()
+
+    // Increase heap size for HTML report generation with SQL Monitor content
+    maxHeapSize = "4g"
+
     testLogging {
         events("passed", "skipped", "failed")
         showStandardStreams = true
     }
+    // Forward benchmark.* system properties to test JVM
+    systemProperties(System.getProperties().filterKeys {
+        it.toString().startsWith("benchmark.")
+    }.mapKeys { it.key.toString() })
 }
