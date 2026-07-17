@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trade Annotation Service Benchmark Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        .summary-box { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: right; }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f8f9fa; }
+        tr:hover { background: #e8f4f8; }
+        td:first-child { text-align: left; font-weight: bold; }
+        .chart-container { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .tabs { display: flex; gap: 5px; margin-bottom: 0; }
+        .tab { padding: 10px 20px; background: #ddd; border-radius: 8px 8px 0 0; cursor: pointer; }
+        .tab.active { background: white; border-bottom: 2px solid white; }
+        .tab-content { display: none; background: white; padding: 20px; border-radius: 0 8px 8px 8px; }
+        .tab-content.active { display: block; }
+        pre { background: #2d3436; color: #dfe6e9; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .metric { display: inline-block; padding: 5px 15px; margin: 5px; background: #3498db; color: white; border-radius: 20px; }
+        .winner-mongo { color: #27ae60; font-weight: bold; }
+        .winner-oracle { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Trade Annotation Service Benchmark Report</h1>
+
+    <div class="summary-box">
+        <h3>Test Configuration</h3>
+        <span class="metric">Workflow: Append-Only Documents</span>
+        <span class="metric">Query: Range Scan on Composite _id</span>
+        <span class="metric">Payload Sizes: 4-12 KB</span>
+        <span class="metric">Order Counts: 1K, 10K</span>
+        <span class="metric">Complex Order Ratio: 20%</span>
+    </div>
+<h2>Insert Performance</h2><table><tr><th>Test</th><th>Payload</th><th>Orders</th><th>Documents</th><th>MongoDB (ns)</th><th>Oracle API (ns)</th><th>JDBC JSON (ns)</th><th>JDBC REL (ns)</th></tr><tr><td>TA1_4KB_1K</td><td>4 KB</td><td>1,000</td><td>8,533</td><td>429,279,791</td><td>1,160,622,994</td><td>1,399,496,136</td><td>9,446,707,359</td></tr><tr><td>TA2_4KB_10K</td><td>4 KB</td><td>10,000</td><td>83,892</td><td>2,106,207,767</td><td>11,568,936,435</td><td>13,529,539,348</td><td>87,969,387,268</td></tr><tr><td>TA3_6KB_1K</td><td>6 KB</td><td>1,000</td><td>8,533</td><td>342,523,241</td><td>1,672,902,373</td><td>1,751,910,617</td><td>9,383,003,959</td></tr><tr><td>TA4_6KB_10K</td><td>6 KB</td><td>10,000</td><td>83,892</td><td>2,783,272,491</td><td>13,318,563,811</td><td>17,869,826,255</td><td>91,488,878,644</td></tr><tr><td>TA5_8KB_1K</td><td>8 KB</td><td>1,000</td><td>8,533</td><td>374,351,175</td><td>2,192,699,796</td><td>2,397,254,428</td><td>9,779,075,313</td></tr><tr><td>TA6_8KB_10K</td><td>8 KB</td><td>10,000</td><td>83,892</td><td>5,342,738,987</td><td>17,003,404,236</td><td>23,190,857,157</td><td>101,694,965,630</td></tr><tr><td>TA7_10KB_1K</td><td>10 KB</td><td>1,000</td><td>8,533</td><td>523,727,058</td><td>1,934,057,367</td><td>2,697,940,912</td><td>9,714,448,124</td></tr><tr><td>TA8_10KB_10K</td><td>10 KB</td><td>10,000</td><td>83,892</td><td>7,248,740,448</td><td>20,077,267,518</td><td>26,861,287,263</td><td>100,507,397,079</td></tr><tr><td>TA9_12KB_1K</td><td>12 KB</td><td>1,000</td><td>8,533</td><td>592,332,190</td><td>2,822,987,144</td><td>3,154,361,136</td><td>9,613,958,729</td></tr><tr><td>TA10_12KB_10K</td><td>12 KB</td><td>10,000</td><td>83,892</td><td>7,007,445,891</td><td>21,556,596,531</td><td>31,715,907,571</td><td>94,878,208,437</td></tr></table><h2>Read Performance (10 iterations)</h2><table><tr><th>Test</th><th>Queries</th><th>MongoDB (ns)</th><th>API Native (ns)</th><th>API $sql (ns)</th><th>JDBC JSON (ns)</th><th>JDBC REL (ns)</th><th>Winner</th></tr><tr><td>TA1_4KB_1K</td><td>307</td><td>1,567,739,985</td><td>3,537,447,209</td><td>3,831,581,398</td><td>1,600,016,431</td><td>1,767,880,959</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA2_4KB_10K</td><td>3,000</td><td>14,199,072,927</td><td>33,230,044,027</td><td>37,380,807,170</td><td>14,319,270,703</td><td>17,216,680,948</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA3_6KB_1K</td><td>307</td><td>1,455,527,536</td><td>3,829,269,537</td><td>4,231,462,675</td><td>1,734,895,626</td><td>1,966,391,690</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA4_6KB_10K</td><td>3,000</td><td>14,265,889,791</td><td>37,856,981,242</td><td>42,929,720,017</td><td>16,696,322,115</td><td>18,803,170,619</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA5_8KB_1K</td><td>307</td><td>1,498,194,097</td><td>5,144,006,886</td><td>5,760,459,001</td><td>2,305,864,728</td><td>2,054,110,475</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA6_8KB_10K</td><td>3,000</td><td>14,614,025,256</td><td>51,663,155,671</td><td>55,634,842,179</td><td>21,487,589,624</td><td>20,143,455,736</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA7_10KB_1K</td><td>307</td><td>1,555,967,340</td><td>5,697,947,362</td><td>6,076,808,841</td><td>2,577,059,031</td><td>2,146,348,730</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA8_10KB_10K</td><td>3,000</td><td>15,154,989,241</td><td>54,375,883,785</td><td>58,976,705,092</td><td>23,816,290,049</td><td>20,773,274,330</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA9_12KB_1K</td><td>307</td><td>1,556,524,551</td><td>6,103,202,922</td><td>6,593,558,492</td><td>2,826,589,882</td><td>2,411,937,925</td><td class="winner-mongo">MongoDB</td></tr><tr><td>TA10_12KB_10K</td><td>3,000</td><td>15,113,755,438</td><td>58,379,703,806</td><td>62,594,769,220</td><td>25,080,643,480</td><td>23,926,100,819</td><td class="winner-mongo">MongoDB</td></tr></table><h2>Performance Charts</h2>
+<div class="chart-container">
+    <canvas id="insertChart" height="100"></canvas>
+</div>
+<div class="chart-container">
+    <canvas id="readChart" height="100"></canvas>
+</div>
+<script>const labels = ["TA1_4KB_1K","TA2_4KB_10K","TA3_6KB_1K","TA4_6KB_10K","TA5_8KB_1K","TA6_8KB_10K","TA7_10KB_1K","TA8_10KB_10K","TA9_12KB_1K","TA10_12KB_10K"];new Chart(document.getElementById('insertChart'), {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            { label: 'MongoDB', data: [429279791, 2106207767, 342523241, 2783272491, 374351175, 5342738987, 523727058, 7248740448, 592332190, 7007445891], backgroundColor: 'rgba(39, 174, 96, 0.7)' },
+            { label: 'JDBC JSON', data: [1399496136, 13529539348, 1751910617, 17869826255, 2397254428, 23190857157, 2697940912, 26861287263, 3154361136, 31715907571], backgroundColor: 'rgba(52, 152, 219, 0.7)' },
+            { label: 'JDBC REL', data: [9446707359, 87969387268, 9383003959, 91488878644, 9779075313, 101694965630, 9714448124, 100507397079, 9613958729, 94878208437], backgroundColor: 'rgba(231, 76, 60, 0.7)' }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { title: { display: true, text: 'Insert Performance (nanoseconds)' } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+new Chart(document.getElementById('readChart'), {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            { label: 'MongoDB', data: [1567739985, 14199072927, 1455527536, 14265889791, 1498194097, 14614025256, 1555967340, 15154989241, 1556524551, 15113755438], backgroundColor: 'rgba(39, 174, 96, 0.7)' },
+            { label: 'JDBC JSON', data: [1600016431, 14319270703, 1734895626, 16696322115, 2305864728, 21487589624, 2577059031, 23816290049, 2826589882, 25080643480], backgroundColor: 'rgba(52, 152, 219, 0.7)' },
+            { label: 'JDBC REL', data: [1767880959, 17216680948, 1966391690, 18803170619, 2054110475, 20143455736, 2146348730, 20773274330, 2411937925, 23926100819], backgroundColor: 'rgba(231, 76, 60, 0.7)' }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { title: { display: true, text: 'Read Performance (nanoseconds, 10 iterations)' } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+</script><h2>Query Details</h2><div class="tabs"><div class="tab active" onclick="showTab('mongoTab')">MongoDB</div><div class="tab" onclick="showTab('jsonTab')">Oracle JSON</div><div class="tab" onclick="showTab('relTab')">Oracle Relational</div></div><div id="mongoTab" class="tab-content active"><h3>MongoDB Range Query</h3><pre>db.trade_documents.find({
+  _id: { $gte: "ORD_00000#", $lt: "ORD_00000$" }
+}).sort({ _id: 1 })</pre></div><div id="jsonTab" class="tab-content"><h3>Oracle JDBC JSON Query</h3><pre>SELECT data FROM trade_documents
+WHERE id >= ? AND id < ?
+ORDER BY id
+-- Parameters: 'ORD_00000#', 'ORD_00000$'</pre></div><div id="relTab" class="tab-content"><h3>Oracle JDBC Relational Query</h3><pre>SELECT id, order_id, doc_type, doc_id, ts,
+       symbol, side, quantity, price, client_id,
+       fill_qty, fill_price, venue,
+       source, annotation_type, annotation_value, payload
+FROM trade_documents_rel
+WHERE order_id = ?
+ORDER BY id
+-- Parameter: 'ORD_00000'</pre></div><script>
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.target.classList.add('active');
+}
+</script>
+<h2>SQL Monitor Reports</h2><p>SQL Monitor reports are available in: <code>reports/sql_monitor/</code></p><ul><li><a href="sql_monitor/monitor_TA1_4KB_1K_json.html">TA1_4KB_1K - JSON</a> | <a href="sql_monitor/monitor_TA1_4KB_1K_rel.html">TA1_4KB_1K - Relational</a></li><li><a href="sql_monitor/monitor_TA2_4KB_10K_json.html">TA2_4KB_10K - JSON</a> | <a href="sql_monitor/monitor_TA2_4KB_10K_rel.html">TA2_4KB_10K - Relational</a></li><li><a href="sql_monitor/monitor_TA3_6KB_1K_json.html">TA3_6KB_1K - JSON</a> | <a href="sql_monitor/monitor_TA3_6KB_1K_rel.html">TA3_6KB_1K - Relational</a></li><li><a href="sql_monitor/monitor_TA4_6KB_10K_json.html">TA4_6KB_10K - JSON</a> | <a href="sql_monitor/monitor_TA4_6KB_10K_rel.html">TA4_6KB_10K - Relational</a></li><li><a href="sql_monitor/monitor_TA5_8KB_1K_json.html">TA5_8KB_1K - JSON</a> | <a href="sql_monitor/monitor_TA5_8KB_1K_rel.html">TA5_8KB_1K - Relational</a></li><li><a href="sql_monitor/monitor_TA6_8KB_10K_json.html">TA6_8KB_10K - JSON</a> | <a href="sql_monitor/monitor_TA6_8KB_10K_rel.html">TA6_8KB_10K - Relational</a></li><li><a href="sql_monitor/monitor_TA7_10KB_1K_json.html">TA7_10KB_1K - JSON</a> | <a href="sql_monitor/monitor_TA7_10KB_1K_rel.html">TA7_10KB_1K - Relational</a></li><li><a href="sql_monitor/monitor_TA8_10KB_10K_json.html">TA8_10KB_10K - JSON</a> | <a href="sql_monitor/monitor_TA8_10KB_10K_rel.html">TA8_10KB_10K - Relational</a></li><li><a href="sql_monitor/monitor_TA9_12KB_1K_json.html">TA9_12KB_1K - JSON</a> | <a href="sql_monitor/monitor_TA9_12KB_1K_rel.html">TA9_12KB_1K - Relational</a></li><li><a href="sql_monitor/monitor_TA10_12KB_10K_json.html">TA10_12KB_10K - JSON</a> | <a href="sql_monitor/monitor_TA10_12KB_10K_rel.html">TA10_12KB_10K - Relational</a></li></ul><h2>AWR Reports</h2><p>AWR reports are available in: <code>build/reports/awr/</code></p><ul><li><a href="../build/reports/awr/awr_TA1_4KB_1K.html">TA1_4KB_1K</a></li><li><a href="../build/reports/awr/awr_TA2_4KB_10K.html">TA2_4KB_10K</a></li><li><a href="../build/reports/awr/awr_TA3_6KB_1K.html">TA3_6KB_1K</a></li><li><a href="../build/reports/awr/awr_TA4_6KB_10K.html">TA4_6KB_10K</a></li><li><a href="../build/reports/awr/awr_TA5_8KB_1K.html">TA5_8KB_1K</a></li><li><a href="../build/reports/awr/awr_TA6_8KB_10K.html">TA6_8KB_10K</a></li><li><a href="../build/reports/awr/awr_TA7_10KB_1K.html">TA7_10KB_1K</a></li><li><a href="../build/reports/awr/awr_TA8_10KB_10K.html">TA8_10KB_10K</a></li><li><a href="../build/reports/awr/awr_TA9_12KB_1K.html">TA9_12KB_1K</a></li><li><a href="../build/reports/awr/awr_TA10_12KB_10K.html">TA10_12KB_10K</a></li></ul></div></body></html>

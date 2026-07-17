@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Search Benchmark Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a3e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --mongo-color: #4ade80;
+            --oracle-sql-color: #f59e0b;
+            --oracle-jdbc-color: #3b82f6;
+            --border-color: #333;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { font-size: 2rem; margin-bottom: 10px; }
+        h2 { font-size: 1.5rem; margin: 20px 0 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .timestamp { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px; }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .summary-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+        .summary-card .value { font-size: 2rem; font-weight: bold; }
+        .summary-card .label { color: var(--text-secondary); font-size: 0.9rem; }
+        .chart-container {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th { background: rgba(255,255,255,0.05); }
+        .winner { color: var(--mongo-color); font-weight: bold; }
+        /* Main tabs */
+        .main-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .main-tab {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 8px 8px 0 0;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .main-tab.active { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .main-tab-content { display: none; }
+        .main-tab-content.active { display: block; }
+        /* Category tabs */
+        .category-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .category-tab {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .category-tab.active { background: linear-gradient(135deg, #10b981, #059669); }
+        .category-tab-content { display: none; }
+        .category-tab-content.active { display: block; }
+        /* Test tabs */
+        .test-tabs { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .test-tab {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 5px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .test-tab.active { background: rgba(255,255,255,0.25); }
+        .test-tab-content { display: none; background: rgba(255,255,255,0.02); border-radius: 10px; padding: 20px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .test-tab-content.active { display: block; }
+        /* Protocol tabs */
+        .protocol-tabs { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        .protocol-tab { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem; }
+        .protocol-tab.mongo { background: rgba(74, 222, 128, 0.2); color: var(--mongo-color); }
+        .protocol-tab.mongo.active { background: var(--mongo-color); color: #000; }
+        .protocol-tab.oracle-sql { background: rgba(245, 158, 11, 0.2); color: var(--oracle-sql-color); }
+        .protocol-tab.oracle-sql.active { background: var(--oracle-sql-color); color: #000; }
+        .protocol-tab.oracle-jdbc { background: rgba(59, 130, 246, 0.2); color: var(--oracle-jdbc-color); }
+        .protocol-tab.oracle-jdbc.active { background: var(--oracle-jdbc-color); color: #fff; }
+        .protocol-content { display: none; }
+        .protocol-content.active { display: block; }
+        .detail-section { margin-bottom: 20px; }
+        .detail-section h4 { margin-bottom: 10px; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .detail-section pre { max-height: 400px; overflow: auto; }
+        .links-row { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
+        .links-row a { padding: 8px 16px; background: rgba(255,255,255,0.1); border-radius: 5px; text-decoration: none; }
+        .links-row a:hover { background: rgba(255,255,255,0.2); }
+        .not-available { color: var(--text-secondary); font-style: italic; }
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+        a { color: var(--oracle-sql-color); }
+        .mongo { color: var(--mongo-color); }
+        .oracle-sql { color: var(--oracle-sql-color); }
+        .oracle-jdbc { color: var(--oracle-jdbc-color); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Vector Search Benchmark Report</h1>
+    <div class="timestamp">Generated: 2026-02-11 11:54:29</div>
+<div class="main-tabs">
+    <button class="main-tab active" onclick="showMainTab('summary')">Summary</button>
+    <button class="main-tab" onclick="showMainTab('results')">Results & Details</button>
+</div>
+<div id="main-summary" class="main-tab-content active"><h2>Performance Summary</h2>
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="value mongo">2</div>
+        <div class="label">MongoDB Wins</div>
+    </div>
+    <div class="summary-card">
+        <div class="value oracle-sql">0</div>
+        <div class="label">Oracle $sql Wins</div>
+    </div>
+    <div class="summary-card">
+        <div class="value oracle-jdbc">3</div>
+        <div class="label">Oracle JDBC Wins</div>
+    </div>
+    <div class="summary-card">
+        <div class="value">5</div>
+        <div class="label">Total Tests</div>
+    </div>
+</div>
+<h2>Test Descriptions</h2>
+<div class="desc-category-tabs">
+    <button class="desc-category-tab active" onclick="showDescCategory('VS')">VS Tests (Vector Search)</button>
+    <button class="desc-category-tab" onclick="showDescCategory('RAG')">RAG Tests (Retrieval Augmented)</button>
+</div>
+
+<!-- VS Tests Descriptions -->
+<div id="desc-VS" class="desc-category-content active">
+<div class="test-descriptions">
+    <div class="test-desc">
+        <h3>VS1: Vector Search (Simple Retrieval)</h3>
+        <p><strong>Purpose:</strong> Find the top-10 most similar accounts based on vector embedding similarity using cosine distance.</p>
+        <p><strong>Data:</strong> Account documents with embeddings (384/768/1536 dimensions)</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> with knnVector index (HNSW algorithm)</td></tr>
+            <tr><td>Oracle $sql</td><td><code>$sql</code> aggregation with <code>VECTOR_DISTANCE()</code> via ORDS MongoDB API</td></tr>
+            <tr><td>Oracle JDBC</td><td>Direct SQL with <code>VECTOR_DISTANCE(embedding, TO_VECTOR(...), COSINE)</code></td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>VS3: Recall Accuracy Measurement</h3>
+        <p><strong>Purpose:</strong> Measure the recall rate of ANN (Approximate Nearest Neighbor) search against exact brute-force KNN.</p>
+        <p><strong>Metrics:</strong> Recall@10, Recall@50, Recall@100 - percentage of true nearest neighbors found</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> with varying <code>numCandidates</code></td></tr>
+            <tr><td>Oracle JDBC</td><td><code>VECTOR_DISTANCE</code> with optional vector index hints</td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>VS4: Filtered Vector Search</h3>
+        <p><strong>Purpose:</strong> Test vector search performance with pre-filters at different selectivity levels.</p>
+        <p><strong>Selectivity Levels:</strong> 50%%, 10%%, ~20%% (region), ~5%% (compound filter)</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> with <code>filter</code> parameter (pre-filter)</td></tr>
+            <tr><td>Oracle JDBC</td><td><code>VECTOR_DISTANCE</code> with <code>WHERE</code> clause</td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>VS5: Hybrid Search (Vector + Full-Text)</h3>
+        <p><strong>Purpose:</strong> Compare pure vector search, pure text search, and hybrid fusion approaches.</p>
+        <p><strong>Fusion Methods:</strong> RRF (Reciprocal Rank Fusion) with k=60</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> + <code>$search</code> (text) with client-side RRF</td></tr>
+            <tr><td>Oracle JDBC</td><td><code>VECTOR_DISTANCE</code> + <code>CONTAINS</code> (Oracle Text)</td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>VS6: Quantization Performance</h3>
+        <p><strong>Purpose:</strong> Compare search performance and recall with different vector quantization levels.</p>
+        <p><strong>Types:</strong> Float32 (baseline), Int8 (scalar quantization)</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td>Float32 vectors (quantization is automatic in Atlas)</td></tr>
+            <tr><td>Oracle JDBC</td><td><code>VECTOR(384, FLOAT64)</code> and <code>VECTOR(384, INT8)</code></td></tr>
+        </table>
+    </div>
+</div>
+</div>
+
+<!-- RAG Tests Descriptions -->
+<div id="desc-RAG" class="desc-category-content">
+<div class="test-descriptions">
+    <div class="test-desc">
+        <h3>RAG1: Multi-Hop Graph Traversal</h3>
+        <p><strong>Purpose:</strong> RAG pattern - Find similar accounts and traverse relationships to find connected accounts.</p>
+        <p><strong>Data:</strong> 10K accounts with embeddings + 200K transactions (20 per account)</p>
+        <p><strong>Traversal:</strong> Same-tenant accounts via $graphLookup, shared-merchant accounts via transaction joins</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> → <code>$graphLookup</code> (same tenant) → <code>$lookup</code> (shared merchants)</td></tr>
+            <tr><td>Oracle JDBC</td><td>CTE + self-join for same-tenant + shared merchant subqueries</td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>RAG2: Temporal Transaction Aggregation (Weekly Stats)</h3>
+        <p><strong>Purpose:</strong> RAG pattern - Find similar accounts, join transactions (30 days), and aggregate by ISO week.</p>
+        <p><strong>Data:</strong> 10K accounts with embeddings + 200K transactions (20 per account)</p>
+        <p><strong>Aggregation:</strong> Group by ISO week → count, sum(amount), avg(amount) per week</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> → <code>$lookup</code> → <code>$group</code> by <code>$isoWeek</code></td></tr>
+            <tr><td>Oracle JDBC</td><td>CTE + <code>GROUP BY TRUNC(date, 'IW')</code> with window functions</td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>RAG3: Customer 360 Profile Assembly</h3>
+        <p><strong>Purpose:</strong> RAG pattern - Find similar accounts and assemble complete customer profile with spending analysis.</p>
+        <p><strong>Data:</strong> 10K accounts with embeddings + 200K transactions (20 per account)</p>
+        <p><strong>Profile:</strong> txn_count, total_spent, avg_amount, days_since_last_activity, spending by category</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> → <code>$lookup</code> → <code>$addFields</code> with <code>$reduce</code> for category map</td></tr>
+            <tr><td>Oracle JDBC</td><td>Two CTEs: stats aggregation + category spending pivot</td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>RAG4: Activity Pattern Detection (Rolling Window)</h3>
+        <p><strong>Purpose:</strong> RAG pattern - Find similar accounts and detect activity patterns using 7-day rolling windows.</p>
+        <p><strong>Data:</strong> 10K accounts with embeddings + 200K transactions (90-day range)</p>
+        <p><strong>Pattern Detection:</strong> Rolling 7-day count, burst detection (>2x avg), dormant detection (0 txns)</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> → <code>$lookup</code> → <code>$setWindowFields</code> for rolling window</td></tr>
+            <tr><td>Oracle JDBC</td><td>CTE + <code>SUM() OVER (RANGE BETWEEN 6 PRECEDING AND CURRENT ROW)</code></td></tr>
+        </table>
+    </div>
+    <div class="test-desc">
+        <h3>RAG5: Hybrid Context Ranking (Score Fusion)</h3>
+        <p><strong>Purpose:</strong> RAG pattern - Over-fetch candidates, compute hybrid score, and re-rank for final results.</p>
+        <p><strong>Data:</strong> 10K accounts with embeddings + 200K transactions</p>
+        <p><strong>Hybrid Score:</strong> 0.5×vector_score + 0.3×normalized_activity + 0.2×recency_score</p>
+        <table class="desc-table">
+            <tr><th>Protocol</th><th>Implementation</th></tr>
+            <tr><td>MongoDB Native</td><td><code>$vectorSearch</code> (50 candidates) → <code>$lookup</code> → <code>$setWindowFields</code> for normalization → hybrid score → top-10</td></tr>
+            <tr><td>Oracle JDBC</td><td>CTE with over-fetch + window functions for min/max normalization + hybrid formula</td></tr>
+        </table>
+    </div>
+</div>
+</div>
+
+<style>
+    .test-descriptions { margin-bottom: 30px; }
+    .test-desc { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 20px; margin-bottom: 15px; border: 1px solid var(--border-color); }
+    .test-desc h3 { margin-bottom: 10px; color: var(--oracle-sql-color); }
+    .test-desc p { margin-bottom: 10px; }
+    .desc-table { width: 100%%; margin-top: 10px; }
+    .desc-table th { background: rgba(255,255,255,0.08); }
+    .desc-table td, .desc-table th { padding: 8px; }
+    .desc-table code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; }
+    .desc-category-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .desc-category-tab {
+        padding: 10px 20px;
+        background: rgba(255,255,255,0.1);
+        border: none;
+        border-radius: 8px;
+        color: var(--text-primary);
+        cursor: pointer;
+        font-weight: 500;
+    }
+    .desc-category-tab.active { background: linear-gradient(135deg, #10b981, #059669); }
+    .desc-category-content { display: none; }
+    .desc-category-content.active { display: block; }
+</style>
+<script>
+    function showDescCategory(category) {
+        document.querySelectorAll('.desc-category-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.desc-category-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('desc-' + category).classList.add('active');
+        event.target.classList.add('active');
+    }
+</script>
+</div><div id="main-results" class="main-tab-content"><div class="category-tabs">
+    <button class="category-tab active" onclick="showCategoryTab('VS')">VS Tests (Vector Search)</button>
+    <button class="category-tab" onclick="showCategoryTab('RAG')">RAG Tests (Retrieval Augmented)</button>
+</div>
+<div id="category-VS" class="category-tab-content active"><h3>VS Performance Comparison</h3><div class="chart-container">
+    <canvas id="chart_VS"></canvas>
+</div>
+<script>
+    new Chart(document.getElementById('chart_VS'), {
+        type: 'bar',
+        data: {
+            labels: ["VS3_RECALL_10","VS4_FILTER_10PCT","VS4_FILTER_REGION","VS4_FILTER_COMPOUND","VS6_INT8"],
+            datasets: [
+                { label: 'MongoDB Native', data: [6.08,2.43,3.21,1.98,3.88], backgroundColor: 'rgba(74, 222, 128, 0.8)', borderColor: '#4ade80', borderWidth: 1 },
+                { label: 'Oracle $sql', data: [52.96,27.64,33.43,39.23,44.66], backgroundColor: 'rgba(245, 158, 11, 0.8)', borderColor: '#f59e0b', borderWidth: 1 },
+                { label: 'Oracle JDBC', data: [13.06,1.30,2.35,0.89,7.18], backgroundColor: 'rgba(59, 130, 246, 0.8)', borderColor: '#3b82f6', borderWidth: 1 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: { display: true, text: 'VS Tests - Query Latency (ms) - Lower is Better', color: '#e0e0e0' },
+                legend: { labels: { color: '#e0e0e0' } }
+            },
+            scales: {
+                x: { ticks: { color: '#a0a0a0', maxRotation: 45, minRotation: 45 }, grid: { color: '#333' } },
+                y: { type: 'logarithmic', ticks: { color: '#a0a0a0' }, grid: { color: '#333' }, title: { display: true, text: 'Latency (ms) - Log Scale', color: '#a0a0a0' } }
+            }
+        }
+    });
+</script>
+<h3>Results</h3><table>
+    <tr>
+        <th>Test</th>
+        <th>MongoDB (ms)</th>
+        <th>Oracle $sql (ms)</th>
+        <th>Oracle JDBC (ms)</th>
+        <th>Winner</th>
+        <th>Speedup</th>
+    </tr>
+<tr>
+    <td>VS3_RECALL_10</td>
+    <td>6.08</td>
+    <td>52.96</td>
+    <td>13.06</td>
+    <td class="winner">MongoDB</td>
+    <td>8.7x</td>
+</tr>
+<tr>
+    <td>VS4_FILTER_10PCT</td>
+    <td>2.43</td>
+    <td>27.64</td>
+    <td>1.30</td>
+    <td class="winner">Oracle JDBC</td>
+    <td>21.3x</td>
+</tr>
+<tr>
+    <td>VS4_FILTER_REGION</td>
+    <td>3.21</td>
+    <td>33.43</td>
+    <td>2.35</td>
+    <td class="winner">Oracle JDBC</td>
+    <td>14.2x</td>
+</tr>
+<tr>
+    <td>VS4_FILTER_COMPOUND</td>
+    <td>1.98</td>
+    <td>39.23</td>
+    <td>0.89</td>
+    <td class="winner">Oracle JDBC</td>
+    <td>44.0x</td>
+</tr>
+<tr>
+    <td>VS6_INT8</td>
+    <td>3.88</td>
+    <td>44.66</td>
+    <td>7.18</td>
+    <td class="winner">MongoDB</td>
+    <td>11.5x</td>
+</tr>
+</table><h3>Query Details</h3><div class="test-tabs"><button class="test-tab active" onclick="showTestTab_VS('VS3_RECALL_10')">VS3_RECALL_10</button><button class="test-tab" onclick="showTestTab_VS('VS4_FILTER_10PCT')">VS4_FILTER_10PCT</button><button class="test-tab" onclick="showTestTab_VS('VS4_FILTER_REGION')">VS4_FILTER_REGION</button><button class="test-tab" onclick="showTestTab_VS('VS4_FILTER_COMPOUND')">VS4_FILTER_COMPOUND</button><button class="test-tab" onclick="showTestTab_VS('VS6_INT8')">VS6_INT8</button></div><div id="VS_test_VS3_RECALL_10" class="test-tab-content active"><div class="protocol-tabs"><button class="protocol-tab mongo active" onclick="showProtocol_VS('VS3_RECALL_10', 'mongo')">MongoDB Native</button><button class="protocol-tab oracle-sql" onclick="showProtocol_VS('VS3_RECALL_10', 'oracle-sql')">Oracle $sql</button><button class="protocol-tab oracle-jdbc" onclick="showProtocol_VS('VS3_RECALL_10', 'oracle-jdbc')">Oracle JDBC</button></div><div id="VS_VS3_RECALL_10_mongo" class="protocol-content active"><p class="not-available">Query details not captured for this test</p><p><strong>Latency:</strong> 6.08 ms</p></div><div id="VS_VS3_RECALL_10_oracle-sql" class="protocol-content"><p class="not-available">Oracle $sql not tested for this test</p><p><strong>Latency:</strong> 52.96 ms</p></div><div id="VS_VS3_RECALL_10_oracle-jdbc" class="protocol-content"><p class="not-available">Query details not captured for this test</p><p style="margin-top:10px"><strong>Latency:</strong> 13.06 ms</p></div></div><div id="VS_test_VS4_FILTER_10PCT" class="test-tab-content"><div class="protocol-tabs"><button class="protocol-tab mongo active" onclick="showProtocol_VS('VS4_FILTER_10PCT', 'mongo')">MongoDB Native</button><button class="protocol-tab oracle-sql" onclick="showProtocol_VS('VS4_FILTER_10PCT', 'oracle-sql')">Oracle $sql</button><button class="protocol-tab oracle-jdbc" onclick="showProtocol_VS('VS4_FILTER_10PCT', 'oracle-jdbc')">Oracle JDBC</button></div><div id="VS_VS4_FILTER_10PCT_mongo" class="protocol-content active"><p class="not-available">Query details not captured for this test</p><p><strong>Latency:</strong> 2.43 ms</p></div><div id="VS_VS4_FILTER_10PCT_oracle-sql" class="protocol-content"><p class="not-available">Oracle $sql not tested for this test</p><p><strong>Latency:</strong> 27.64 ms</p></div><div id="VS_VS4_FILTER_10PCT_oracle-jdbc" class="protocol-content"><p class="not-available">Query details not captured for this test</p><p style="margin-top:10px"><strong>Latency:</strong> 1.30 ms</p></div></div><div id="VS_test_VS4_FILTER_REGION" class="test-tab-content"><div class="protocol-tabs"><button class="protocol-tab mongo active" onclick="showProtocol_VS('VS4_FILTER_REGION', 'mongo')">MongoDB Native</button><button class="protocol-tab oracle-sql" onclick="showProtocol_VS('VS4_FILTER_REGION', 'oracle-sql')">Oracle $sql</button><button class="protocol-tab oracle-jdbc" onclick="showProtocol_VS('VS4_FILTER_REGION', 'oracle-jdbc')">Oracle JDBC</button></div><div id="VS_VS4_FILTER_REGION_mongo" class="protocol-content active"><p class="not-available">Query details not captured for this test</p><p><strong>Latency:</strong> 3.21 ms</p></div><div id="VS_VS4_FILTER_REGION_oracle-sql" class="protocol-content"><p class="not-available">Oracle $sql not tested for this test</p><p><strong>Latency:</strong> 33.43 ms</p></div><div id="VS_VS4_FILTER_REGION_oracle-jdbc" class="protocol-content"><p class="not-available">Query details not captured for this test</p><p style="margin-top:10px"><strong>Latency:</strong> 2.35 ms</p></div></div><div id="VS_test_VS4_FILTER_COMPOUND" class="test-tab-content"><div class="protocol-tabs"><button class="protocol-tab mongo active" onclick="showProtocol_VS('VS4_FILTER_COMPOUND', 'mongo')">MongoDB Native</button><button class="protocol-tab oracle-sql" onclick="showProtocol_VS('VS4_FILTER_COMPOUND', 'oracle-sql')">Oracle $sql</button><button class="protocol-tab oracle-jdbc" onclick="showProtocol_VS('VS4_FILTER_COMPOUND', 'oracle-jdbc')">Oracle JDBC</button></div><div id="VS_VS4_FILTER_COMPOUND_mongo" class="protocol-content active"><p class="not-available">Query details not captured for this test</p><p><strong>Latency:</strong> 1.98 ms</p></div><div id="VS_VS4_FILTER_COMPOUND_oracle-sql" class="protocol-content"><p class="not-available">Oracle $sql not tested for this test</p><p><strong>Latency:</strong> 39.23 ms</p></div><div id="VS_VS4_FILTER_COMPOUND_oracle-jdbc" class="protocol-content"><p class="not-available">Query details not captured for this test</p><p style="margin-top:10px"><strong>Latency:</strong> 0.89 ms</p></div></div><div id="VS_test_VS6_INT8" class="test-tab-content"><div class="protocol-tabs"><button class="protocol-tab mongo active" onclick="showProtocol_VS('VS6_INT8', 'mongo')">MongoDB Native</button><button class="protocol-tab oracle-sql" onclick="showProtocol_VS('VS6_INT8', 'oracle-sql')">Oracle $sql</button><button class="protocol-tab oracle-jdbc" onclick="showProtocol_VS('VS6_INT8', 'oracle-jdbc')">Oracle JDBC</button></div><div id="VS_VS6_INT8_mongo" class="protocol-content active"><p class="not-available">Query details not captured for this test</p><p><strong>Latency:</strong> 3.88 ms</p></div><div id="VS_VS6_INT8_oracle-sql" class="protocol-content"><p class="not-available">Oracle $sql not tested for this test</p><p><strong>Latency:</strong> 44.66 ms</p></div><div id="VS_VS6_INT8_oracle-jdbc" class="protocol-content"><p class="not-available">Query details not captured for this test</p><p style="margin-top:10px"><strong>Latency:</strong> 7.18 ms</p></div></div><script>
+    function showTestTab_VS(testId) {
+        const container = document.getElementById('category-VS');
+        container.querySelectorAll('.test-tab-content').forEach(c => c.classList.remove('active'));
+        container.querySelectorAll('.test-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('VS_test_' + testId).classList.add('active');
+        event.target.classList.add('active');
+    }
+    function showProtocol_VS(testId, protocol) {
+        const testContent = document.getElementById('VS_test_' + testId);
+        testContent.querySelectorAll('.protocol-content').forEach(c => c.classList.remove('active'));
+        testContent.querySelectorAll('.protocol-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('VS_' + testId + '_' + protocol).classList.add('active');
+        event.target.classList.add('active');
+    }
+</script>
+</div><div id="category-RAG" class="category-tab-content"><p>No tests in this category</p></div><script>
+    function showCategoryTab(category) {
+        document.querySelectorAll('.category-tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('category-' + category).classList.add('active');
+        event.target.classList.add('active');
+    }
+</script>
+</div><script>
+    function showMainTab(tabId) {
+        document.querySelectorAll('.main-tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('main-' + tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+</script>
+</div>
+</body>
+</html>

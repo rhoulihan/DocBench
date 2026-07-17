@@ -1,426 +1,917 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Triple Comparison Benchmark Report</title>
+    <title>MongoDB vs Oracle - Triple Comparison Benchmark Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            min-height: 100vh;
-            color: #eee;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        h1 {
-            text-align: center;
-            color: #00d4ff;
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
-        }
-        .subtitle {
-            text-align: center;
-            color: #888;
-            margin-bottom: 40px;
-        }
-        .chart-container {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .chart-title {
-            color: #00d4ff;
-            font-size: 1.4em;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
-        }
-        canvas {
-            max-height: 400px;
-        }
-        .legend-custom {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 20px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-        }
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-        .summary-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 25px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .summary-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 1em;
-            color: #888;
-        }
-        .summary-card .value {
-            font-size: 2.5em;
-            font-weight: bold;
-        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%); min-height: 100vh; color: #eee; }
+        .container { max-width: 1800px; margin: 0 auto; }
+        h1 { text-align: center; color: #00d4ff; font-size: 2.8em; margin-bottom: 5px; text-shadow: 0 0 30px rgba(0, 212, 255, 0.6); }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; font-size: 1.2em; }
+        .summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; margin-bottom: 40px; }
+        .summary-card { background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 25px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .summary-card h3 { margin: 0 0 15px 0; font-size: 1em; color: #888; }
+        .summary-card .value { font-size: 2.2em; font-weight: bold; }
         .mongo-color { color: #4ade80; }
         .oracle-api-color { color: #f59e0b; }
         .oracle-jdbc-color { color: #3b82f6; }
-        .footer {
-            text-align: center;
-            margin-top: 40px;
-            color: #666;
-            font-size: 0.9em;
-        }
+        .failure-color { color: #ef4444; }
+        .chart-section { background: rgba(255, 255, 255, 0.03); border-radius: 20px; padding: 35px; margin-bottom: 35px; border: 1px solid rgba(255, 255, 255, 0.08); }
+        .chart-title { color: #00d4ff; font-size: 1.5em; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid rgba(0, 212, 255, 0.3); }
+        table { border-collapse: collapse; width: 100%; margin: 25px 0; background: rgba(0,0,0,0.3); border-radius: 12px; overflow: hidden; }
+        th, td { border: 1px solid rgba(255,255,255,0.08); padding: 14px 12px; text-align: right; }
+        th { background: rgba(0, 212, 255, 0.15); color: #00d4ff; font-weight: 600; }
+        td:first-child { text-align: left; font-weight: 500; }
+        tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+        tr:hover { background: rgba(0, 212, 255, 0.08); }
+        .winner-mongo { color: #4ade80; font-weight: bold; }
+        .winner-oracle-native { color: #a855f7; font-weight: bold; }
+        .winner-oracle-api { color: #f59e0b; font-weight: bold; }
+        .winner-oracle-jdbc { color: #3b82f6; font-weight: bold; }
+        .winner-oracle-rel { color: #ec4899; font-weight: bold; }
+        .winner-oracle-hybrid { color: #14b8a6; font-weight: bold; }
+        .failure { color: #ef4444; font-weight: bold; }
+        .legend-box { display: flex; justify-content: center; gap: 40px; margin: 20px 0; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; }
+        .legend-item { display: flex; align-items: center; gap: 10px; }
+        .legend-dot { width: 16px; height: 16px; border-radius: 50%; }
+        .footer { text-align: center; margin-top: 50px; color: #555; font-size: 0.9em; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .category-desc { color: #aaa; font-size: 0.95em; line-height: 1.6; margin-bottom: 20px; padding: 15px 20px; background: rgba(0,212,255,0.05); border-left: 3px solid rgba(0,212,255,0.3); border-radius: 0 8px 8px 0; }
+        .category-desc code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', 'Consolas', monospace; color: #00d4ff; }
+        /* Tab styles */
+        .tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .tab-btn { padding: 10px 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px 8px 0 0; color: #888; cursor: pointer; transition: all 0.2s; font-size: 0.9em; }
+        .tab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .tab-btn.active { background: rgba(0, 212, 255, 0.2); border-color: rgba(0, 212, 255, 0.4); color: #00d4ff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        /* Subtab styles for SQL Monitor and AWR */
+        .subtabs { display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; }
+        .subtab-btn { padding: 6px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #888; cursor: pointer; transition: all 0.2s; font-size: 0.85em; }
+        .subtab-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .subtab-btn.active { background: rgba(59, 130, 246, 0.3); border-color: rgba(59, 130, 246, 0.5); color: #3b82f6; }
+        .subtab-content { display: none; }
+        .subtab-content.active { display: block; }
+        /* Protocol-level tabs for SQL Monitor */
+        .protocol-tabs { margin-bottom: 15px; border-bottom: 2px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .protocol-btn { font-weight: 600; padding: 8px 16px; }
+        .protocol-btn.active { color: #fff !important; }
+        .protocol-content { display: none; padding: 10px 0; }
+        .protocol-content.active { display: block; }
+        /* Test-level tabs within protocol sections */
+        .test-tabs { background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; }
+        .test-btn { padding: 4px 10px; font-size: 0.8em; }
+        .test-content { display: none; margin-top: 10px; }
+        .test-content.active { display: block; }
+        .sql-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.85em; color: #ddd; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
+        .sql-box .keyword { color: #569cd6; }
+        .sql-box .function { color: #dcdcaa; }
+        .sql-box .string { color: #ce9178; }
+        .sql-box .comment { color: #6a9955; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🚀 Triple Comparison Benchmark</h1>
-    <p class="subtitle">MongoDB Native vs Oracle MongoDB API vs Oracle JDBC</p>
+    <h1>MongoDB vs Oracle: Quad Comparison</h1>
+    <p class="subtitle">MongoDB $lookup vs Oracle $sql vs JDBC JSON vs JDBC Relational</p>
 
-    <div class="summary-grid">
-        <div class="summary-card">
-            <h3>MongoDB Native</h3>
-            <div class="value mongo-color">$lookup</div>
-        </div>
-        <div class="summary-card">
-            <h3>Oracle MongoDB API</h3>
-            <div class="value oracle-api-color">$sql</div>
-        </div>
-        <div class="summary-card">
-            <h3>Oracle JDBC</h3>
-            <div class="value oracle-jdbc-color">SQL JOIN</div>
-        </div>
+    <div class="legend-box">
+        <div class="legend-item"><div class="legend-dot" style="background: #4ade80;"></div><span>MongoDB Native ($lookup)</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background: #a855f7;"></div><span>Oracle Native (MongoDB API)</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background: #f59e0b;"></div><span>Oracle $sql (MongoDB API)</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background: #3b82f6;"></div><span>Oracle JDBC JSON</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background: #ec4899;"></div><span>Oracle JDBC Relational</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background: #14b8a6;"></div><span>Oracle JDBC Hybrid</span></div>
     </div>
-<div class="chart-container">
-<h2 class="chart-title">Join Performance by Scale</h2>
-<canvas id="chart0"></canvas>
+    <div class="summary-grid">
+        <div class="summary-card"><h3>MongoDB Wins</h3><div class="value mongo-color">0</div></div>
+        <div class="summary-card"><h3>Oracle Native Wins</h3><div class="value" style="color: #a855f7;">0</div></div>
+        <div class="summary-card"><h3>Oracle $sql Wins</h3><div class="value oracle-api-color">0</div></div>
+        <div class="summary-card"><h3>JDBC JSON Wins</h3><div class="value oracle-jdbc-color">0</div></div>
+        <div class="summary-card"><h3>JDBC Relational Wins</h3><div class="value" style="color: #ec4899;">3</div></div>
+        <div class="summary-card"><h3>JDBC Hybrid Wins</h3><div class="value" style="color: #14b8a6;">0</div></div>
+        <div class="summary-card"><h3>MongoDB Failures</h3><div class="value failure-color">1</div></div>
+    </div>
+<div class="chart-section">
+<h2 class="chart-title">Hybrid Schema (JSON + Virtual Columns)</h2>
+<div class="category-desc">Tests a hybrid schema approach that combines JSON document storage with relational virtual columns.
+The hybrid tables store full JSON documents in a <code>data JSON</code> column, but project indexed
+attributes (like <code>customer_id</code>) into <strong>virtual/generated columns</strong> computed from JSON.
+This enables standard B-tree indexes on the virtual columns for efficient join predicates:
+<code>JOIN ... ON c.customer_id = o.customer_id</code> instead of
+<code>JSON_VALUE(c.data, '$.customer_id') = JSON_VALUE(o.data, '$.customer_id')</code>.
+The hybrid approach should match relational join performance while returning full JSON documents.</div>
+<div class="tabs">
+<button class="tab-btn active" onclick="openTab(event, 'chart-tab-hybrid')">Chart</button>
+<button class="tab-btn" onclick="openTab(event, 'mongo-tab-hybrid')">MongoDB</button>
+<button class="tab-btn" onclick="openTab(event, 'sql-tab-hybrid')">Oracle SQL</button>
+<button class="tab-btn" onclick="openTab(event, 'plan-tab-hybrid')">Oracle Plan</button>
+<button class="tab-btn" onclick="openTab(event, 'monitor-tab-hybrid')">SQL Monitor</button>
+<button class="tab-btn" onclick="openTab(event, 'awr-tab-hybrid')">AWR Report</button>
 </div>
-<div class="chart-container">
-<h2 class="chart-title">Join Performance by Cardinality</h2>
-<canvas id="chart1"></canvas>
+<div id="chart-tab-hybrid" class="tab-content active">
+<canvas id="chart-hybrid" style="max-height: 400px; margin-bottom: 30px;"></canvas>
+<table>
+<tr><th>Test Case</th><th>MongoDB (ms)</th><th>Oracle Native (ms)</th><th>$sql (ms)</th><th>JDBC JSON (ms)</th><th>JDBC Rel (ms)</th><th>JDBC Hybrid (ms)</th><th>Winner</th></tr>
+<tr><td>Hybrid schema - 1K customers</td><td>22.15</td><td>N/A</td><td>75.28</td><td>18.80</td><td>9.16</td><td>49.20</td><td class='winner-oracle-rel'>JDBC Rel</td></tr>
+<tr><td>Hybrid schema - 10K customers</td><td>157.47</td><td>N/A</td><td>598.64</td><td>182.58</td><td>74.31</td><td>308.57</td><td class='winner-oracle-rel'>JDBC Rel</td></tr>
+<tr><td>Hybrid schema - 100K customers</td><td>1617.12</td><td>N/A</td><td>6082.84</td><td>1887.50</td><td>771.12</td><td>3119.80</td><td class='winner-oracle-rel'>JDBC Rel</td></tr>
+<tr><td>Hybrid selective - single customer</td><td><span class='failure'>FAILED</span></td><td>N/A</td><td>N/A</td><td>0.36</td><td>0.27</td><td>0.36</td><td class='failure'>Oracle (Mongo FAIL)</td></tr>
+</table>
 </div>
-<div class="chart-container">
-<h2 class="chart-title">Sort Performance</h2>
-<canvas id="chart2"></canvas>
+<div id="mongo-tab-hybrid" class="tab-content">
+<h3 style="color: #4ade80; margin-bottom: 15px;">MongoDB Native Aggregation Pipeline</h3>
+<div class="sql-box"><pre>// Hybrid schema - 1K customers
+[
+  {&quot;$limit&quot;: 1000},
+  {&quot;$lookup&quot;: {&quot;from&quot;: &quot;benchmark_orders&quot;, &quot;localField&quot;: &quot;_id&quot;, &quot;foreignField&quot;: &quot;customer_id&quot;, &quot;as&quot;: &quot;orders&quot;}}
+]
+
+// Hybrid schema - 10K customers
+[
+  {&quot;$limit&quot;: 10000},
+  {&quot;$lookup&quot;: {&quot;from&quot;: &quot;benchmark_orders&quot;, &quot;localField&quot;: &quot;_id&quot;, &quot;foreignField&quot;: &quot;customer_id&quot;, &quot;as&quot;: &quot;orders&quot;}}
+]
+
+// Hybrid schema - 100K customers
+[
+  {&quot;$limit&quot;: 100000},
+  {&quot;$lookup&quot;: {&quot;from&quot;: &quot;benchmark_orders&quot;, &quot;localField&quot;: &quot;_id&quot;, &quot;foreignField&quot;: &quot;customer_id&quot;, &quot;as&quot;: &quot;orders&quot;}}
+]
+
+</pre></div>
+<h3 style="color: #4ade80; margin: 20px 0 15px;">MongoDB Native Explain Plan</h3>
+<div class="sql-box" style="max-height: 600px;"><pre>// Hybrid schema - 1K customers
+{
+  &quot;explainVersion&quot;: &quot;2&quot;,
+  &quot;queryPlanner&quot;: {
+    &quot;namespace&quot;: &quot;testdb.benchmark_customers&quot;,
+    &quot;parsedQuery&quot;: {},
+    &quot;indexFilterSet&quot;: false,
+    &quot;queryHash&quot;: &quot;B3956D95&quot;,
+    &quot;planCacheShapeHash&quot;: &quot;B3956D95&quot;,
+    &quot;planCacheKey&quot;: &quot;E66D7B71&quot;,
+    &quot;optimizationTimeMillis&quot;: 0,
+    &quot;optimizedPipeline&quot;: true,
+    &quot;maxIndexedOrSolutionsReached&quot;: false,
+    &quot;maxIndexedAndSolutionsReached&quot;: false,
+    &quot;maxScansToExplodeReached&quot;: false,
+    &quot;prunedSimilarIndexes&quot;: false,
+    &quot;winningPlan&quot;: {
+      &quot;isCached&quot;: false,
+      &quot;queryPlan&quot;: {
+        &quot;stage&quot;: &quot;EQ_LOOKUP&quot;,
+        &quot;planNodeId&quot;: 3,
+        &quot;foreignCollection&quot;: &quot;testdb.benchmark_orders&quot;,
+        &quot;localField&quot;: &quot;_id&quot;,
+        &quot;foreignField&quot;: &quot;customer_id&quot;,
+        &quot;asField&quot;: &quot;orders&quot;,
+        &quot;strategy&quot;: &quot;IndexedLoopJoin&quot;,
+        &quot;indexName&quot;: &quot;customer_id_1&quot;,
+        &quot;indexKeyPattern&quot;: {
+          &quot;customer_id&quot;: 1
+        },
+        &quot;scanDirection&quot;: &quot;forward&quot;,
+        &quot;inputStage&quot;: {
+          &quot;stage&quot;: &quot;LIMIT&quot;,
+          &quot;planNodeId&quot;: 2,
+          &quot;limitAmount&quot;: 1000,
+          &quot;inputStage&quot;: {
+            &quot;stage&quot;: &quot;COLLSCAN&quot;,
+            &quot;planNodeId&quot;: 1,
+            &quot;filter&quot;: {},
+            &quot;direction&quot;: &quot;forward&quot;
+          }
+        }
+      },
+      &quot;slotBasedPlan&quot;: {
+        &quot;slots&quot;: &quot;$$RESULT=s29 env: { s3 = 1000 }&quot;,
+        &quot;stages&quot;: &quot;[3] mkbson s29 s1 [] drop [orders = s28] true false \n[3] nlj inner [s1] [s9] \n    left \n        [3] nlj inner [s1] [s1] \n            left \n                [2] limit s3 \n                [1] scan s1 s2 none none none none none none [] @\&quot;002f5ab2-cf84-4e53-a29e-4a4631310130\&quot; true false \n            right \n                [3] project [s9 = \n                    if isArrayEmpty(s7) \n                    then [null] \n                    else s7 \n               ] \n                [3] group [] [s7 = addToSet(s5)] spillSlots[s8] mergingExprs[aggSetUnion(s8)] \n                [3] unwind s5 s6 s4 true \n                [3] project [s4 = getField(s1, \&quot;_id\&quot;)] \n                [3] limit 1ll \n                [3] coscan \n    right \n        [3] limit 1ll \n        [3] union [s28] \n            branch0 [s26] \n                [3] project [s26 = getElement(s24, 0)] \n                [3] group [] [s24 = addToArrayCapped(s22, 104857600)] spillSlots[s25] mergingExprs[aggConcatArraysCapped(s25, 104857600)] \n                [3] filter {traverseF((getField(s22, \&quot;customer_id\&quot;) ?: null), lambda(l1.0) { isMember(l1.0, s9) }, true)} \n                [3] nlj inner [] [s18, s20, s21, s19, s17] \n                    left \n                        [3] nlj inner [s17] [s15, s16] \n                            left \n                                [3] nlj inner [] [s10] \n                                    left \n                                        [3] unwind s10 s11 s9 true \n                                        [3] limit 1ll \n                                        [3] coscan \n                                    right \n                                        [3] project [s15 = ks(1ll, 0, s14, 1ll), s16 = ks(1ll, 0, s14, 2ll), s17 = {\&quot;customer_id\&quot; : 1}] \n                                        [3] union [s14] \n                                            branch0 [s12] \n                                                [3] filter {(isArray(s10) &amp;&amp; !(isMember(s12, s9)))} \n                                                [3] project [s12 = (getElement(s10, 0) ?: undefined)] \n                                                [3] limit 1ll \n                                                [3] coscan \n                                            branch1 [s13] \n                                                [3] project [s13 = s10] \n                                                [3] limit 1ll \n                                                [3] coscan \n                            right \n                                [3] ixseek s15 s16 s19 s18 s20 s21 [] @\&quot;b6a4de23-72e9-40b7-b13d-4a5b4474bdfc\&quot; @\&quot;customer_id_1\&quot; true \n                    right \n                        [3] limit 1ll \n                        [3] seek s18 s22 s23 s20 s21 s19 s17 none none [] @\&quot;b6a4de23-72e9-40b7-b13d-4a5b4474bdfc\&quot; true false \n            branch1 [s27] \n                [3] project [s27 = []] \n                [3] limit 1ll \n                [3] coscan \n&quot;
+      }
+    },
+    &quot;rejectedPlans&quot;: []
+  },
+  &quot;queryShapeHash&quot;: &quot;15A686A1C70E24469112F6673E180C18DADF62C16C1287AE9416147E01D0D0B9&quot;,
+  &quot;command&quot;: {
+    &quot;aggregate&quot;: &quot;benchmark_customers&quot;,
+    &quot;pipeline&quot;: [
+      {
+        &quot;$limit&quot;: 1000
+      },
+      {
+        &quot;$lookup&quot;: {
+          &quot;from&quot;: &quot;benchmark_orders&quot;,
+          &quot;localField&quot;: &quot;_id&quot;,
+          &quot;foreignField&quot;: &quot;customer_id&quot;,
+          &quot;as&quot;: &quot;orders&quot;
+        }
+      }
+    ],
+    &quot;explain&quot;: true,
+    &quot;cursor&quot;: {},
+    &quot;$db&quot;: &quot;testdb&quot;,
+    &quot;$clusterTime&quot;: {
+      &quot;clusterTime&quot;: {
+        &quot;$timestamp&quot;: {
+          &quot;t&quot;: 1770563226,
+          &quot;i&quot;: 5
+        }
+      },
+      &quot;signature&quot;: {
+        &quot;hash&quot;: {
+          &quot;$binary&quot;: {
+            &quot;base64&quot;: &quot;AAAAAAAAAAAAAAAAAAAAAAAAAAA=&quot;,
+            &quot;subType&quot;: &quot;00&quot;
+          }
+        },
+        &quot;keyId&quot;: 0
+      }
+    },
+    &quot;lsid&quot;: {
+      &quot;id&quot;: {
+        &quot;$binary&quot;: {
+          &quot;base64&quot;: &quot;WxOuC9hIQYGHVi+fM+CaSA==&quot;,
+          &quot;subType&quot;: &quot;04&quot;
+        }
+      }
+    }
+  },
+  &quot;serverInfo&quot;: {
+    &quot;host&quot;: &quot;e4a07f8fec68&quot;,
+    &quot;port&quot;: 27017,
+    &quot;version&quot;: &quot;8.0.16&quot;,
+    &quot;gitVersion&quot;: &quot;ba70b6a13fda907977110bf46e6c8137f5de48f6&quot;
+  },
+  &quot;serverParameters&quot;: {
+    &quot;internalQueryFacetBufferSizeBytes&quot;: 104857600,
+    &quot;internalQueryFacetMaxOutputDocSizeBytes&quot;: 104857600,
+    &quot;internalLookupStageIntermediateDocumentMaxSizeBytes&quot;: 104857600,
+    &quot;internalDocumentSourceGroupMaxMemoryBytes&quot;: 104857600,
+    &quot;internalQueryMaxBlockingSortMemoryUsageBytes&quot;: 104857600,
+    &quot;internalQueryProhibitBlockingMergeOnMongoS&quot;: 0,
+    &quot;internalQueryMaxAddToSetBytes&quot;: 104857600,
+    &quot;internalDocumentSourceSetWindowFieldsMaxMemoryBytes&quot;: 104857600,
+    &quot;internalQueryFrameworkControl&quot;: &quot;trySbeRestricted&quot;,
+    &quot;internalQueryPlannerIgnoreIndexWithCollationForRegex&quot;: 1
+  },
+  &quot;ok&quot;: 1.0,
+  &quot;$clusterTime&quot;: {
+    &quot;clusterTime&quot;: {
+      &quot;$timestamp&quot;: {
+        &quot;t&quot;: 1770563226,
+        &quot;i&quot;: 5
+      }
+    },
+    &quot;signature&quot;: {
+      &quot;hash&quot;: {
+        &quot;$binary&quot;: {
+          &quot;base64&quot;: &quot;AAAAAAAAAAAAAAAAAAAAAAAAAAA=&quot;,
+          &quot;subType&quot;: &quot;00&quot;
+        }
+      },
+      &quot;keyId&quot;: 0
+    }
+  },
+  &quot;operationTime&quot;: {
+    &quot;$timestamp&quot;: {
+      &quot;t&quot;: 1770563226,
+      &quot;i&quot;: 5
+    }
+  }
+}
+
+// Hybrid schema - 10K customers
+{
+  &quot;explainVersion&quot;: &quot;2&quot;,
+  &quot;queryPlanner&quot;: {
+    &quot;namespace&quot;: &quot;testdb.benchmark_customers&quot;,
+    &quot;parsedQuery&quot;: {},
+    &quot;indexFilterSet&quot;: false,
+    &quot;queryHash&quot;: &quot;B3956D95&quot;,
+    &quot;planCacheShapeHash&quot;: &quot;B3956D95&quot;,
+    &quot;planCacheKey&quot;: &quot;E66D7B71&quot;,
+    &quot;optimizationTimeMillis&quot;: 0,
+    &quot;optimizedPipeline&quot;: true,
+    &quot;maxIndexedOrSolutionsReached&quot;: false,
+    &quot;maxIndexedAndSolutionsReached&quot;: false,
+    &quot;maxScansToExplodeReached&quot;: false,
+    &quot;prunedSimilarIndexes&quot;: false,
+    &quot;winningPlan&quot;: {
+      &quot;isCached&quot;: false,
+      &quot;queryPlan&quot;: {
+        &quot;stage&quot;: &quot;EQ_LOOKUP&quot;,
+        &quot;planNodeId&quot;: 3,
+        &quot;foreignCollection&quot;: &quot;testdb.benchmark_orders&quot;,
+        &quot;localField&quot;: &quot;_id&quot;,
+        &quot;foreignField&quot;: &quot;customer_id&quot;,
+        &quot;asField&quot;: &quot;orders&quot;,
+        &quot;strategy&quot;: &quot;IndexedLoopJoin&quot;,
+        &quot;indexName&quot;: &quot;customer_id_1&quot;,
+        &quot;indexKeyPattern&quot;: {
+          &quot;customer_id&quot;: 1
+        },
+        &quot;scanDirection&quot;: &quot;forward&quot;,
+        &quot;inputStage&quot;: {
+          &quot;stage&quot;: &quot;LIMIT&quot;,
+          &quot;planNodeId&quot;: 2,
+          &quot;limitAmount&quot;: 10000,
+          &quot;inputStage&quot;: {
+            &quot;stage&quot;: &quot;COLLSCAN&quot;,
+            &quot;planNodeId&quot;: 1,
+            &quot;filter&quot;: {},
+            &quot;direction&quot;: &quot;forward&quot;
+          }
+        }
+      },
+      &quot;slotBasedPlan&quot;: {
+        &quot;slots&quot;: &quot;$$RESULT=s29 env: { s3 = 10000 }&quot;,
+        &quot;stages&quot;: &quot;[3] mkbson s29 s1 [] drop [orders = s28] true false \n[3] nlj inner [s1] [s9] \n    left \n        [3] nlj inner [s1] [s1] \n            left \n                [2] limit s3 \n                [1] scan s1 s2 none none none none none none [] @\&quot;27277f06-7103-4971-b209-ebd06c0a56e7\&quot; true false \n            right \n                [3] project [s9 = \n                    if isArrayEmpty(s7) \n                    then [null] \n                    else s7 \n               ] \n                [3] group [] [s7 = addToSet(s5)] spillSlots[s8] mergingExprs[aggSetUnion(s8)] \n                [3] unwind s5 s6 s4 true \n                [3] project [s4 = getField(s1, \&quot;_id\&quot;)] \n                [3] limit 1ll \n                [3] coscan \n    right \n        [3] limit 1ll \n        [3] union [s28] \n            branch0 [s26] \n                [3] project [s26 = getElement(s24, 0)] \n                [3] group [] [s24 = addToArrayCapped(s22, 104857600)] spillSlots[s25] mergingExprs[aggConcatArraysCapped(s25, 104857600)] \n                [3] filter {traverseF((getField(s22, \&quot;customer_id\&quot;) ?: null), lambda(l1.0) { isMember(l1.0, s9) }, true)} \n                [3] nlj inner [] [s18, s20, s21, s19, s17] \n                    left \n                        [3] nlj inner [s17] [s15, s16] \n                            left \n                                [3] nlj inner [] [s10] \n                                    left \n                                        [3] unwind s10 s11 s9 true \n                                        [3] limit 1ll \n                                        [3] coscan \n                                    right \n                                        [3] project [s15 = ks(1ll, 0, s14, 1ll), s16 = ks(1ll, 0, s14, 2ll), s17 = {\&quot;customer_id\&quot; : 1}] \n                                        [3] union [s14] \n                                            branch0 [s12] \n                                                [3] filter {(isArray(s10) &amp;&amp; !(isMember(s12, s9)))} \n                                                [3] project [s12 = (getElement(s10, 0) ?: undefined)] \n                                                [3] limit 1ll \n                                                [3] coscan \n                                            branch1 [s13] \n                                                [3] project [s13 = s10] \n                                                [3] limit 1ll \n                                                [3] coscan \n                            right \n                                [3] ixseek s15 s16 s19 s18 s20 s21 [] @\&quot;9c800200-8aaa-41c5-85ed-d915398fa0f4\&quot; @\&quot;customer_id_1\&quot; true \n                    right \n                        [3] limit 1ll \n                        [3] seek s18 s22 s23 s20 s21 s19 s17 none none [] @\&quot;9c800200-8aaa-41c5-85ed-d915398fa0f4\&quot; true false \n            branch1 [s27] \n                [3] project [s27 = []] \n                [3] limit 1ll \n                [3] coscan \n&quot;
+      }
+    },
+    &quot;rejectedPlans&quot;: []
+  },
+  &quot;queryShapeHash&quot;: &quot;15A686A1C70E24469112F6673E180C18DADF62C16C1287AE9416147E01D0D0B9&quot;,
+  &quot;command&quot;: {
+    &quot;aggregate&quot;: &quot;benchmark_customers&quot;,
+    &quot;pipeline&quot;: [
+      {
+        &quot;$limit&quot;: 10000
+      },
+      {
+        &quot;$lookup&quot;: {
+          &quot;from&quot;: &quot;benchmark_orders&quot;,
+          &quot;localField&quot;: &quot;_id&quot;,
+          &quot;foreignField&quot;: &quot;customer_id&quot;,
+          &quot;as&quot;: &quot;orders&quot;
+        }
+      }
+    ],
+    &quot;explain&quot;: true,
+    &quot;cursor&quot;: {},
+    &quot;$db&quot;: &quot;testdb&quot;,
+    &quot;$clusterTime&quot;: {
+      &quot;clusterTime&quot;: {
+        &quot;$timestamp&quot;: {
+          &quot;t&quot;: 1770563242,
+          &quot;i&quot;: 5
+        }
+      },
+      &quot;signature&quot;: {
+        &quot;hash&quot;: {
+          &quot;$binary&quot;: {
+            &quot;base64&quot;: &quot;AAAAAAAAAAAAAAAAAAAAAAAAAAA=&quot;,
+            &quot;subType&quot;: &quot;00&quot;
+          }
+        },
+        &quot;keyId&quot;: 0
+      }
+    },
+    &quot;lsid&quot;: {
+      &quot;id&quot;: {
+        &quot;$binary&quot;: {
+          &quot;base64&quot;: &quot;WxOuC9hIQYGHVi+fM+CaSA==&quot;,
+          &quot;subType&quot;: &quot;04&quot;
+        }
+      }
+    }
+  },
+  &quot;serverInfo&quot;: {
+    &quot;host&quot;: &quot;e4a07f8fec68&quot;,
+    &quot;port&quot;: 27017,
+    &quot;version&quot;: &quot;8.0.16&quot;,
+    &quot;gitVersion&quot;: &quot;ba70b6a13fda907977110bf46e6c8137f5de48f6&quot;
+  },
+  &quot;serverParameters&quot;: {
+    &quot;internalQueryFacetBufferSizeBytes&quot;: 104857600,
+    &quot;internalQueryFacetMaxOutputDocSizeBytes&quot;: 104857600,
+    &quot;internalLookupStageIntermediateDocumentMaxSizeBytes&quot;: 104857600,
+    &quot;internalDocumentSourceGroupMaxMemoryBytes&quot;: 104857600,
+    &quot;internalQueryMaxBlockingSortMemoryUsageBytes&quot;: 104857600,
+    &quot;internalQueryProhibitBlockingMergeOnMongoS&quot;: 0,
+    &quot;internalQueryMaxAddToSetBytes&quot;: 104857600,
+    &quot;internalDocumentSourceSetWindowFieldsMaxMemoryBytes&quot;: 104857600,
+    &quot;internalQueryFrameworkControl&quot;: &quot;trySbeRestricted&quot;,
+    &quot;internalQueryPlannerIgnoreIndexWithCollationForRegex&quot;: 1
+  },
+  &quot;ok&quot;: 1.0,
+  &quot;$clusterTime&quot;: {
+    &quot;clusterTime&quot;: {
+      &quot;$timestamp&quot;: {
+        &quot;t&quot;: 1770563242,
+        &quot;i&quot;: 5
+      }
+    },
+    &quot;signature&quot;: {
+      &quot;hash&quot;: {
+        &quot;$binary&quot;: {
+          &quot;base64&quot;: &quot;AAAAAAAAAAAAAAAAAAAAAAAAAAA=&quot;,
+          &quot;subType&quot;: &quot;00&quot;
+        }
+      },
+      &quot;keyId&quot;: 0
+    }
+  },
+  &quot;operationTime&quot;: {
+    &quot;$timestamp&quot;: {
+      &quot;t&quot;: 1770563242,
+      &quot;i&quot;: 5
+    }
+  }
+}
+
+// Hybrid schema - 100K customers
+{
+  &quot;explainVersion&quot;: &quot;2&quot;,
+  &quot;queryPlanner&quot;: {
+    &quot;namespace&quot;: &quot;testdb.benchmark_customers&quot;,
+    &quot;parsedQuery&quot;: {},
+    &quot;indexFilterSet&quot;: false,
+    &quot;queryHash&quot;: &quot;B3956D95&quot;,
+    &quot;planCacheShapeHash&quot;: &quot;B3956D95&quot;,
+    &quot;planCacheKey&quot;: &quot;E66D7B71&quot;,
+    &quot;optimizationTimeMillis&quot;: 0,
+    &quot;optimizedPipeline&quot;: true,
+    &quot;maxIndexedOrSolutionsReached&quot;: false,
+    &quot;maxIndexedAndSolutionsReached&quot;: false,
+    &quot;maxScansToExplodeReached&quot;: false,
+    &quot;prunedSimilarIndexes&quot;: false,
+    &quot;winningPlan&quot;: {
+      &quot;isCached&quot;: false,
+      &quot;queryPlan&quot;: {
+        &quot;stage&quot;: &quot;EQ_LOOKUP&quot;,
+        &quot;planNodeId&quot;: 3,
+        &quot;foreignCollection&quot;: &quot;testdb.benchmark_orders&quot;,
+        &quot;localField&quot;: &quot;_id&quot;,
+        &quot;foreignField&quot;: &quot;customer_id&quot;,
+        &quot;asField&quot;: &quot;orders&quot;,
+        &quot;strategy&quot;: &quot;IndexedLoopJoin&quot;,
+        &quot;indexName&quot;: &quot;customer_id_1&quot;,
+        &quot;indexKeyPattern&quot;: {
+          &quot;customer_id&quot;: 1
+        },
+        &quot;scanDirection&quot;: &quot;forward&quot;,
+        &quot;inputStage&quot;: {
+          &quot;stage&quot;: &quot;LIMIT&quot;,
+          &quot;planNodeId&quot;: 2,
+          &quot;limitAmount&quot;: 100000,
+          &quot;inputStage&quot;: {
+            &quot;stage&quot;: &quot;COLLSCAN&quot;,
+            &quot;planNodeId&quot;: 1,
+            &quot;filter&quot;: {},
+            &quot;direction&quot;: &quot;forward&quot;
+          }
+        }
+      },
+      &quot;slotBasedPlan&quot;: {
+        &quot;slots&quot;: &quot;$$RESULT=s29 env: { s3 = 100000 }&quot;,
+        &quot;stages&quot;: &quot;[3] mkbson s29 s1 [] drop [orders = s28] true false \n[3] nlj inner [s1] [s9] \n    left \n        [3] nlj inner [s1] [s1] \n            left \n                [2] limit s3 \n                [1] scan s1 s2 none none none none none none [] @\&quot;fb2ac51f-1cb8-49ba-8b26-b7c2da9fdedd\&quot; true false \n            right \n                [3] project [s9 = \n                    if isArrayEmpty(s7) \n                    then [null] \n                    else s7 \n               ] \n                [3] group [] [s7 = addToSet(s5)] spillSlots[s8] mergingExprs[aggSetUnion(s8)] \n                [3] unwind s5 s6 s4 true \n                [3] project [s4 = getField(s1, \&quot;_id\&quot;)] \n                [3] limit 1ll \n                [3] coscan \n    right \n        [3] limit 1ll \n        [3] union [s28] \n            branch0 [s26] \n                [3] project [s26 = getElement(s24, 0)] \n                [3] group [] [s24 = addToArrayCapped(s22, 104857600)] spillSlots[s25] mergingExprs[aggConcatArraysCapped(s25, 104857600)] \n                [3] filter {traverseF((getField(s22, \&quot;customer_id\&quot;) ?: null), lambda(l1.0) { isMember(l1.0, s9) }, true)} \n                [3] nlj inner [] [s18, s20, s21, s19, s17] \n                    left \n                        [3] nlj inner [s17] [s15, s16] \n                            left \n                                [3] nlj inner [] [s10] \n                                    left \n                                        [3] unwind s10 s11 s9 true \n                                        [3] limit 1ll \n                                        [3] coscan \n                                    right \n                                        [3] project [s15 = ks(1ll, 0, s14, 1ll), s16 = ks(1ll, 0, s14, 2ll), s17 = {\&quot;customer_id\&quot; : 1}] \n                                        [3] union [s14] \n                                            branch0 [s12] \n                                                [3] filter {(isArray(s10) &amp;&amp; !(isMember(s12, s9)))} \n                                                [3] project [s12 = (getElement(s10, 0) ?: undefined)] \n                                                [3] limit 1ll \n                                                [3] coscan \n                                            branch1 [s13] \n                                                [3] project [s13 = s10] \n                                                [3] limit 1ll \n                                                [3] coscan \n                            right \n                                [3] ixseek s15 s16 s19 s18 s20 s21 [] @\&quot;3b7d322b-3770-4334-a819-b76f42084a02\&quot; @\&quot;customer_id_1\&quot; true \n                    right \n                        [3] limit 1ll \n                        [3] seek s18 s22 s23 s20 s21 s19 s17 none none [] @\&quot;3b7d322b-3770-4334-a819-b76f42084a02\&quot; true false \n            branch1 [s27] \n                [3] project [s27 = []] \n                [3] limit 1ll \n                [3] coscan \n&quot;
+      }
+    },
+    &quot;rejectedPlans&quot;: []
+  },
+  &quot;queryShapeHash&quot;: &quot;15A686A1C70E24469112F6673E180C18DADF62C16C1287AE9416147E01D0D0B9&quot;,
+  &quot;command&quot;: {
+    &quot;aggregate&quot;: &quot;benchmark_customers&quot;,
+    &quot;pipeline&quot;: [
+      {
+        &quot;$limit&quot;: 100000
+      },
+      {
+        &quot;$lookup&quot;: {
+          &quot;from&quot;: &quot;benchmark_orders&quot;,
+          &quot;localField&quot;: &quot;_id&quot;,
+          &quot;foreignField&quot;: &quot;customer_id&quot;,
+          &quot;as&quot;: &quot;orders&quot;
+        }
+      }
+    ],
+    &quot;explain&quot;: true,
+    &quot;cursor&quot;: {},
+    &quot;$db&quot;: &quot;testdb&quot;,
+    &quot;$clusterTime&quot;: {
+      &quot;clusterTime&quot;: {
+        &quot;$timestamp&quot;: {
+          &quot;t&quot;: 1770563389,
+          &quot;i&quot;: 3
+        }
+      },
+      &quot;signature&quot;: {
+        &quot;hash&quot;: {
+          &quot;$binary&quot;: {
+            &quot;base64&quot;: &quot;AAAAAAAAAAAAAAAAAAAAAAAAAAA=&quot;,
+            &quot;subType&quot;: &quot;00&quot;
+          }
+        },
+        &quot;keyId&quot;: 0
+      }
+    },
+    &quot;lsid&quot;: {
+      &quot;id&quot;: {
+        &quot;$binary&quot;: {
+          &quot;base64&quot;: &quot;WxOuC9hIQYGHVi+fM+CaSA==&quot;,
+          &quot;subType&quot;: &quot;04&quot;
+        }
+      }
+    }
+  },
+  &quot;serverInfo&quot;: {
+    &quot;host&quot;: &quot;e4a07f8fec68&quot;,
+    &quot;port&quot;: 27017,
+    &quot;version&quot;: &quot;8.0.16&quot;,
+    &quot;gitVersion&quot;: &quot;ba70b6a13fda907977110bf46e6c8137f5de48f6&quot;
+  },
+  &quot;serverParameters&quot;: {
+    &quot;internalQueryFacetBufferSizeBytes&quot;: 104857600,
+    &quot;internalQueryFacetMaxOutputDocSizeBytes&quot;: 104857600,
+    &quot;internalLookupStageIntermediateDocumentMaxSizeBytes&quot;: 104857600,
+    &quot;internalDocumentSourceGroupMaxMemoryBytes&quot;: 104857600,
+    &quot;internalQueryMaxBlockingSortMemoryUsageBytes&quot;: 104857600,
+    &quot;internalQueryProhibitBlockingMergeOnMongoS&quot;: 0,
+    &quot;internalQueryMaxAddToSetBytes&quot;: 104857600,
+    &quot;internalDocumentSourceSetWindowFieldsMaxMemoryBytes&quot;: 104857600,
+    &quot;internalQueryFrameworkControl&quot;: &quot;trySbeRestricted&quot;,
+    &quot;internalQueryPlannerIgnoreIndexWithCollationForRegex&quot;: 1
+  },
+  &quot;ok&quot;: 1.0,
+  &quot;$clusterTime&quot;: {
+    &quot;clusterTime&quot;: {
+      &quot;$timestamp&quot;: {
+        &quot;t&quot;: 1770563389,
+        &quot;i&quot;: 3
+      }
+    },
+    &quot;signature&quot;: {
+      &quot;hash&quot;: {
+        &quot;$binary&quot;: {
+          &quot;base64&quot;: &quot;AAAAAAAAAAAAAAAAAAAAAAAAAAA=&quot;,
+          &quot;subType&quot;: &quot;00&quot;
+        }
+      },
+      &quot;keyId&quot;: 0
+    }
+  },
+  &quot;operationTime&quot;: {
+    &quot;$timestamp&quot;: {
+      &quot;t&quot;: 1770563389,
+      &quot;i&quot;: 3
+    }
+  }
+}
+
+</pre></div>
 </div>
-<div class="chart-container">
-<h2 class="chart-title">Aggregation Performance</h2>
-<canvas id="chart3"></canvas>
+<div id="sql-tab-hybrid" class="tab-content">
+<h3 style="color: #3b82f6; margin-bottom: 15px;">JDBC JSON SQL</h3>
+<div class="sql-box"><pre>-- Hybrid schema - 1K customers
+SELECT  c.data, o.data FROM (SELECT * FROM benchmark_customers WHERE ROWNUM &lt;= 1000) c JOIN benchmark_orders o ON JSON_VALUE(c.data, &#39;$._id&#39;) = JSON_VALUE(o.data, &#39;$.customer_id&#39;)
+
+-- Hybrid schema - 10K customers
+SELECT  c.data, o.data FROM (SELECT * FROM benchmark_customers WHERE ROWNUM &lt;= 10000) c JOIN benchmark_orders o ON JSON_VALUE(c.data, &#39;$._id&#39;) = JSON_VALUE(o.data, &#39;$.customer_id&#39;)
+
+-- Hybrid schema - 100K customers
+SELECT  c.data, o.data FROM (SELECT * FROM benchmark_customers WHERE ROWNUM &lt;= 100000) c JOIN benchmark_orders o ON JSON_VALUE(c.data, &#39;$._id&#39;) = JSON_VALUE(o.data, &#39;$.customer_id&#39;)
+
+</pre></div>
+<h3 style="color: #ec4899; margin: 20px 0 15px;">JDBC Relational SQL</h3>
+<div class="sql-box"><pre>-- Hybrid schema - 1K customers
+SELECT  c.customer_id, c.name, c.email, c.region, o.order_id, o.order_date, o.total, o.status FROM (SELECT * FROM benchmark_customers_rel WHERE ROWNUM &lt;= 1000) c JOIN benchmark_orders_rel o ON c.customer_id = o.customer_id
+
+-- Hybrid schema - 10K customers
+SELECT  c.customer_id, c.name, c.email, c.region, o.order_id, o.order_date, o.total, o.status FROM (SELECT * FROM benchmark_customers_rel WHERE ROWNUM &lt;= 10000) c JOIN benchmark_orders_rel o ON c.customer_id = o.customer_id
+
+-- Hybrid schema - 100K customers
+SELECT  c.customer_id, c.name, c.email, c.region, o.order_id, o.order_date, o.total, o.status FROM (SELECT * FROM benchmark_customers_rel WHERE ROWNUM &lt;= 100000) c JOIN benchmark_orders_rel o ON c.customer_id = o.customer_id
+
+</pre></div>
+<h3 style="color: #14b8a6; margin: 20px 0 15px;">JDBC Hybrid SQL (Virtual Columns)</h3>
+<div class="sql-box"><pre>-- Hybrid schema - 1K customers
+SELECT  c.data, o.data FROM (SELECT * FROM benchmark_customers_hyb WHERE ROWNUM &lt;= 1000) c JOIN benchmark_orders_hyb o ON c.customer_id = o.customer_id
+
+-- Hybrid schema - 10K customers
+SELECT  c.data, o.data FROM (SELECT * FROM benchmark_customers_hyb WHERE ROWNUM &lt;= 10000) c JOIN benchmark_orders_hyb o ON c.customer_id = o.customer_id
+
+-- Hybrid schema - 100K customers
+SELECT  c.data, o.data FROM (SELECT * FROM benchmark_customers_hyb WHERE ROWNUM &lt;= 100000) c JOIN benchmark_orders_hyb o ON c.customer_id = o.customer_id
+
+</pre></div>
+<h3 style="color: #f59e0b; margin: 20px 0 15px;">MongoDB API SQL ($sql operator)</h3>
+<div class="sql-box"><pre>-- Hybrid schema - 1K customers
+SELECT  c.data as customer, o.data as &quot;order&quot; FROM (SELECT data FROM benchmark_customers WHERE ROWNUM &lt;= 1000) c JOIN benchmark_orders o ON JSON_VALUE(c.data, &#39;$._id&#39;) = JSON_VALUE(o.data, &#39;$.customer_id&#39;)
+
+-- Hybrid schema - 10K customers
+SELECT  c.data as customer, o.data as &quot;order&quot; FROM (SELECT data FROM benchmark_customers WHERE ROWNUM &lt;= 10000) c JOIN benchmark_orders o ON JSON_VALUE(c.data, &#39;$._id&#39;) = JSON_VALUE(o.data, &#39;$.customer_id&#39;)
+
+-- Hybrid schema - 100K customers
+SELECT  c.data as customer, o.data as &quot;order&quot; FROM (SELECT data FROM benchmark_customers WHERE ROWNUM &lt;= 100000) c JOIN benchmark_orders o ON JSON_VALUE(c.data, &#39;$._id&#39;) = JSON_VALUE(o.data, &#39;$.customer_id&#39;)
+
+</pre></div>
+</div>
+<div id="plan-tab-hybrid" class="tab-content">
+<h3 style="color: #3b82f6; margin-bottom: 15px;">Oracle JSON Execution Plans</h3>
+<div class="sql-box"><pre>-- Hybrid schema - 1K customers
+  SELECT STATEMENT   (Cost: 358, Rows: 10000)
+    HASH JOIN   (Cost: 358, Rows: 10000)
+      VIEW   (Cost: 9, Rows: 1000)
+        COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+          TABLE ACCESS FULL BENCHMARK_CUSTOMERS (Cost: 9, Rows: 1000)
+      TABLE ACCESS FULL BENCHMARK_ORDERS (Cost: 68, Rows: 10000)
+
+-- Hybrid schema - 10K customers
+  SELECT STATEMENT   (Cost: 3600, Rows: 100000)
+    HASH JOIN   (Cost: 3600, Rows: 100000)
+      VIEW   (Cost: 102, Rows: 10000)
+        COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+          TABLE ACCESS FULL BENCHMARK_CUSTOMERS (Cost: 102, Rows: 10000)
+      TABLE ACCESS FULL BENCHMARK_ORDERS (Cost: 683, Rows: 100000)
+
+-- Hybrid schema - 100K customers
+  SELECT STATEMENT   (Cost: 35995, Rows: 1012720)
+    HASH JOIN   (Cost: 35995, Rows: 1012720)
+      VIEW   (Cost: 751, Rows: 100000)
+        COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+          TABLE ACCESS FULL BENCHMARK_CUSTOMERS (Cost: 751, Rows: 100000)
+      TABLE ACCESS FULL BENCHMARK_ORDERS (Cost: 6956, Rows: 1000000)
+
+</pre></div>
+<h3 style="color: #ec4899; margin: 20px 0 15px;">Oracle Relational Execution Plans</h3>
+<div class="sql-box"><pre>-- Hybrid schema - 1K customers
+  SELECT STATEMENT   (Cost: 27, Rows: 10000)
+    HASH JOIN   (Cost: 27, Rows: 10000)
+      NESTED LOOPS   (Cost: 27, Rows: 10000)
+        NESTED LOOPS   (Cost: N/A, Rows: N/A)
+          STATISTICS COLLECTOR   (Cost: N/A, Rows: N/A)
+            VIEW   (Cost: 5, Rows: 1000)
+              COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+                TABLE ACCESS FULL BENCHMARK_CUSTOMERS_REL (Cost: 5, Rows: 1000)
+          INDEX RANGE SCAN IDX_ORDERS_REL_CUSTID (Cost: N/A, Rows: N/A)
+        TABLE ACCESS BY INDEX ROWID BENCHMARK_ORDERS_REL (Cost: 22, Rows: 10)
+      TABLE ACCESS FULL BENCHMARK_ORDERS_REL (Cost: 22, Rows: 10000)
+
+-- Hybrid schema - 10K customers
+  SELECT STATEMENT   (Cost: 643, Rows: 100000)
+    HASH JOIN   (Cost: 643, Rows: 100000)
+      NESTED LOOPS   (Cost: 643, Rows: 100000)
+        NESTED LOOPS   (Cost: N/A, Rows: N/A)
+          STATISTICS COLLECTOR   (Cost: N/A, Rows: N/A)
+            VIEW   (Cost: 30, Rows: 10000)
+              COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+                TABLE ACCESS FULL BENCHMARK_CUSTOMERS_REL (Cost: 30, Rows: 10000)
+          INDEX RANGE SCAN IDX_ORDERS_REL_CUSTID (Cost: N/A, Rows: N/A)
+        TABLE ACCESS BY INDEX ROWID BENCHMARK_ORDERS_REL (Cost: 205, Rows: 10)
+      TABLE ACCESS FULL BENCHMARK_ORDERS_REL (Cost: 205, Rows: 100000)
+
+-- Hybrid schema - 100K customers
+  SELECT STATEMENT   (Cost: 6491, Rows: 1000000)
+    HASH JOIN   (Cost: 6491, Rows: 1000000)
+      NESTED LOOPS   (Cost: 6491, Rows: 1000000)
+        NESTED LOOPS   (Cost: N/A, Rows: N/A)
+          STATISTICS COLLECTOR   (Cost: N/A, Rows: N/A)
+            VIEW   (Cost: 308, Rows: 100000)
+              COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+                TABLE ACCESS FULL BENCHMARK_CUSTOMERS_REL (Cost: 308, Rows: 100000)
+          INDEX RANGE SCAN IDX_ORDERS_REL_CUSTID (Cost: N/A, Rows: N/A)
+        TABLE ACCESS BY INDEX ROWID BENCHMARK_ORDERS_REL (Cost: 2019, Rows: 10)
+      TABLE ACCESS FULL BENCHMARK_ORDERS_REL (Cost: 2019, Rows: 1000000)
+
+</pre></div>
+<h3 style="color: #14b8a6; margin: 20px 0 15px;">Oracle Hybrid Execution Plans (Virtual Columns)</h3>
+<div class="sql-box"><pre>-- Hybrid schema - 1K customers
+  SELECT STATEMENT   (Cost: 360, Rows: 10000)
+    HASH JOIN   (Cost: 360, Rows: 10000)
+      VIEW   (Cost: 9, Rows: 1000)
+        COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+          TABLE ACCESS FULL BENCHMARK_CUSTOMERS_HYB (Cost: 9, Rows: 1000)
+      TABLE ACCESS FULL BENCHMARK_ORDERS_HYB (Cost: 68, Rows: 10000)
+
+-- Hybrid schema - 10K customers
+  SELECT STATEMENT   (Cost: 3625, Rows: 100000)
+    HASH JOIN   (Cost: 3625, Rows: 100000)
+      VIEW   (Cost: 102, Rows: 10000)
+        COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+          TABLE ACCESS FULL BENCHMARK_CUSTOMERS_HYB (Cost: 102, Rows: 10000)
+      TABLE ACCESS FULL BENCHMARK_ORDERS_HYB (Cost: 683, Rows: 100000)
+
+-- Hybrid schema - 100K customers
+  SELECT STATEMENT   (Cost: 36207, Rows: 1012720)
+    HASH JOIN   (Cost: 36207, Rows: 1012720)
+      VIEW   (Cost: 751, Rows: 100000)
+        COUNT STOPKEY  (Cost: N/A, Rows: N/A)
+          TABLE ACCESS FULL BENCHMARK_CUSTOMERS_HYB (Cost: 751, Rows: 100000)
+      TABLE ACCESS FULL BENCHMARK_ORDERS_HYB (Cost: 6922, Rows: 1000000)
+
+</pre></div>
+</div>
+<div id="monitor-tab-hybrid" class="tab-content">
+<h3 style="color: #3b82f6; margin-bottom: 15px;">Oracle SQL Monitor (Active Reports)</h3>
+<div class="subtabs protocol-tabs">
+<button class="subtab-btn protocol-btn active" onclick="openProtocolTab(event, 'monitor-jdbc-hybrid')" style="background: rgba(34, 197, 94, 0.2); border-color: rgba(34, 197, 94, 0.5);">JDBC JSON (3)</button>
+<button class="subtab-btn protocol-btn" onclick="openProtocolTab(event, 'monitor-api-hybrid')" style="background: rgba(251, 191, 36, 0.2); border-color: rgba(251, 191, 36, 0.5);">Oracle API $sql (3)</button>
+<button class="subtab-btn protocol-btn" onclick="openProtocolTab(event, 'monitor-rel-hybrid')" style="background: rgba(236, 72, 153, 0.2); border-color: rgba(236, 72, 153, 0.5);">JDBC Relational (3)</button>
+<button class="subtab-btn protocol-btn" onclick="openProtocolTab(event, 'monitor-hybrid-hybrid')" style="background: rgba(20, 184, 166, 0.2); border-color: rgba(20, 184, 166, 0.5);">JDBC Hybrid (3)</button>
+</div>
+<div id="monitor-jdbc-hybrid" class="protocol-content active">
+<div class="subtabs test-tabs" style="margin-top: 10px;">
+<button class="subtab-btn test-btn active" onclick="openTestTab(event, 'monitor-jdbc-HY1_hybrid_1K-hybrid')" style="border-left: 3px solid #22c55e;">HY1</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-jdbc-HY2_hybrid_10K-hybrid')" style="border-left: 3px solid #22c55e;">HY2</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-jdbc-HY3_hybrid_100K-hybrid')" style="border-left: 3px solid #22c55e;">HY3</button>
+</div>
+<div id="monitor-jdbc-HY1_hybrid_1K-hybrid" class="test-content active">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 1K customers <a href="sql_monitor/monitor_HY1_hybrid_1K_jdbc_json.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY1_hybrid_1K_jdbc_json.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-jdbc-HY2_hybrid_10K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 10K customers <a href="sql_monitor/monitor_HY2_hybrid_10K_jdbc_json.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY2_hybrid_10K_jdbc_json.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-jdbc-HY3_hybrid_100K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 100K customers <a href="sql_monitor/monitor_HY3_hybrid_100K_jdbc_json.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY3_hybrid_100K_jdbc_json.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+</div>
+<div id="monitor-api-hybrid" class="protocol-content">
+<div class="subtabs test-tabs" style="margin-top: 10px;">
+<button class="subtab-btn test-btn active" onclick="openTestTab(event, 'monitor-api-HY1_hybrid_1K-hybrid')" style="border-left: 3px solid #fbbf24;">HY1</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-api-HY2_hybrid_10K-hybrid')" style="border-left: 3px solid #fbbf24;">HY2</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-api-HY3_hybrid_100K-hybrid')" style="border-left: 3px solid #fbbf24;">HY3</button>
+</div>
+<div id="monitor-api-HY1_hybrid_1K-hybrid" class="test-content active">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 1K customers <a href="sql_monitor/monitor_HY1_hybrid_1K_api_sql.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY1_hybrid_1K_api_sql.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-api-HY2_hybrid_10K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 10K customers <a href="sql_monitor/monitor_HY2_hybrid_10K_api_sql.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY2_hybrid_10K_api_sql.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-api-HY3_hybrid_100K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 100K customers <a href="sql_monitor/monitor_HY3_hybrid_100K_api_sql.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY3_hybrid_100K_api_sql.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+</div>
+<div id="monitor-rel-hybrid" class="protocol-content">
+<div class="subtabs test-tabs" style="margin-top: 10px;">
+<button class="subtab-btn test-btn active" onclick="openTestTab(event, 'monitor-rel-HY1_hybrid_1K-hybrid')" style="border-left: 3px solid #ec4899;">HY1</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-rel-HY2_hybrid_10K-hybrid')" style="border-left: 3px solid #ec4899;">HY2</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-rel-HY3_hybrid_100K-hybrid')" style="border-left: 3px solid #ec4899;">HY3</button>
+</div>
+<div id="monitor-rel-HY1_hybrid_1K-hybrid" class="test-content active">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 1K customers <a href="sql_monitor/monitor_HY1_hybrid_1K_relational.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY1_hybrid_1K_relational.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-rel-HY2_hybrid_10K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 10K customers <a href="sql_monitor/monitor_HY2_hybrid_10K_relational.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY2_hybrid_10K_relational.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-rel-HY3_hybrid_100K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 100K customers <a href="sql_monitor/monitor_HY3_hybrid_100K_relational.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY3_hybrid_100K_relational.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+</div>
+<div id="monitor-hybrid-hybrid" class="protocol-content">
+<div class="subtabs test-tabs" style="margin-top: 10px;">
+<button class="subtab-btn test-btn active" onclick="openTestTab(event, 'monitor-hybrid-HY1_hybrid_1K-hybrid')" style="border-left: 3px solid #14b8a6;">HY1</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-hybrid-HY2_hybrid_10K-hybrid')" style="border-left: 3px solid #14b8a6;">HY2</button>
+<button class="subtab-btn test-btn" onclick="openTestTab(event, 'monitor-hybrid-HY3_hybrid_100K-hybrid')" style="border-left: 3px solid #14b8a6;">HY3</button>
+</div>
+<div id="monitor-hybrid-HY1_hybrid_1K-hybrid" class="test-content active">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 1K customers <a href="sql_monitor/monitor_HY1_hybrid_1K_hybrid.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY1_hybrid_1K_hybrid.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-hybrid-HY2_hybrid_10K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 10K customers <a href="sql_monitor/monitor_HY2_hybrid_10K_hybrid.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY2_hybrid_10K_hybrid.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="monitor-hybrid-HY3_hybrid_100K-hybrid" class="test-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 100K customers <a href="sql_monitor/monitor_HY3_hybrid_100K_hybrid.html" target="_blank" style="color: #3b82f6; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="sql_monitor/monitor_HY3_hybrid_100K_hybrid.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+</div>
+</div>
+<div id="awr-tab-hybrid" class="tab-content">
+<h3 style="color: #f97316; margin-bottom: 15px;">Oracle AWR Reports</h3>
+<div class="subtabs">
+<button class="subtab-btn active" onclick="openSubTab(event, 'awr-HY1_hybrid_1K-hybrid')">HY1</button>
+<button class="subtab-btn" onclick="openSubTab(event, 'awr-HY2_hybrid_10K-hybrid')">HY2</button>
+<button class="subtab-btn" onclick="openSubTab(event, 'awr-HY3_hybrid_100K-hybrid')">HY3</button>
+<button class="subtab-btn" onclick="openSubTab(event, 'awr-HY4_hybrid_selective-hybrid')">HY4</button>
+</div>
+<div id="awr-HY1_hybrid_1K-hybrid" class="subtab-content active">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 1K customers <a href="../build/reports/awr/awr_HY1_hybrid_1K.html" target="_blank" style="color: #f97316; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="../build/reports/awr/awr_HY1_hybrid_1K.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="awr-HY2_hybrid_10K-hybrid" class="subtab-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 10K customers <a href="../build/reports/awr/awr_HY2_hybrid_10K.html" target="_blank" style="color: #f97316; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="../build/reports/awr/awr_HY2_hybrid_10K.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="awr-HY3_hybrid_100K-hybrid" class="subtab-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid schema - 100K customers <a href="../build/reports/awr/awr_HY3_hybrid_100K.html" target="_blank" style="color: #f97316; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="../build/reports/awr/awr_HY3_hybrid_100K.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+<div id="awr-HY4_hybrid_selective-hybrid" class="subtab-content">
+<p style="color: #888; margin-bottom: 10px;">Hybrid selective - single customer <a href="../build/reports/awr/awr_HY4_hybrid_selective.html" target="_blank" style="color: #f97316; margin-left: 10px;">[Open in new tab]</a></p>
+<iframe src="../build/reports/awr/awr_HY4_hybrid_selective.html" style="width: 100%; height: 700px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+</div>
+</div>
 </div>
 <script>
-new Chart(document.getElementById('chart0'), {
-    type: 'line',
-    data: {
-        labels: ['100 customers','500 customers','1000 customers','2000 customers','5000 customers','10000 customers'],
-        datasets: [
-            {
-                label: 'MongoDB Native',
-                data: [4.043258,9.330752,15.288954,28.389419,68.720732,146.133222],
-                borderColor: '#4ade80',
-                backgroundColor: 'rgba(74, 222, 128, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle MongoDB API',
-                data: [13.733695,51.317857,91.192584,172.530693,400.266304,769.6103],
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle JDBC',
-                data: [18.848777,74.47397,135.83749,257.931373,639.14583,1288.647476],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                labels: { color: '#eee', font: { size: 14 } }
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' }
-            },
-            y: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' },
-                title: {
-                    display: true,
-                    text: 'Time (milliseconds)',
-                    color: '#aaa'
+Chart.defaults.color = '#aaa';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.1)';
+
+const chartOptions = {
+    responsive: true,
+    plugins: {
+        legend: { labels: { color: '#eee', font: { size: 13 }, padding: 20 } },
+        tooltip: {
+            callbacks: {
+                label: function(context) {
+                    if (context.parsed.y === null) return context.dataset.label + ': FAILED';
+                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
                 }
             }
         }
-    }
-});
-new Chart(document.getElementById('chart1'), {
-    type: 'line',
-    data: {
-        labels: ['1:1','1:5','1:10','1:25','1:50','1:100'],
-        datasets: [
-            {
-                label: 'MongoDB Native',
-                data: [5.626188,9.474969,14.842009,27.921478,51.561336,113.861348],
-                borderColor: '#4ade80',
-                backgroundColor: 'rgba(74, 222, 128, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle MongoDB API',
-                data: [9.762813,41.283623,81.894881,79.248152,79.427541,79.279204],
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle JDBC',
-                data: [14.97142,63.865007,134.330055,129.203705,128.725355,128.792023],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            }
-        ]
     },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                labels: { color: '#eee', font: { size: 14 } }
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' }
-            },
-            y: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' },
-                title: {
-                    display: true,
-                    text: 'Time (milliseconds)',
-                    color: '#aaa'
-                }
-            }
-        }
+    scales: {
+        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Time (ms)', color: '#888' } }
     }
-});
-new Chart(document.getElementById('chart2'), {
-    type: 'line',
-    data: {
-        labels: ['1000 docs','5000 docs','10000 docs','25000 docs','50000 docs','100000 docs'],
-        datasets: [
-            {
-                label: 'MongoDB Native',
-                data: [1.58305,3.938367,7.317097,19.218611,42.118049,77.306718],
-                borderColor: '#4ade80',
-                backgroundColor: 'rgba(74, 222, 128, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle MongoDB API',
-                data: [4.548803,16.516098,31.902118,76.623851,156.272904,302.101277],
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle JDBC',
-                data: [8.433082,40.22318,78.609756,198.474061,387.199024,796.210195],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            }
-        ]
+};
+
+const mongoStyle = { borderColor: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.15)', borderWidth: 3, tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8 };
+const oracleNativeStyle = { borderColor: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.15)', borderWidth: 3, tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8 };
+const oracleApiStyle = { borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.15)', borderWidth: 3, tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8 };
+const oracleJdbcStyle = { borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.15)', borderWidth: 3, tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8 };
+const oracleRelStyle = { borderColor: '#ec4899', backgroundColor: 'rgba(236, 72, 153, 0.15)', borderWidth: 3, tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8 };
+const oracleHybridStyle = { borderColor: '#14b8a6', backgroundColor: 'rgba(20, 184, 166, 0.15)', borderWidth: 3, tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8 };
+
+if (document.getElementById('chart-hybrid')) {
+    new Chart(document.getElementById('chart-hybrid'), {
+        type: 'bar',
+        data: {
+            labels: ['Hybrid 1K', 'Hybrid 10K', 'Hybrid 100K', 'Selective single customer'],
+            datasets: [
+                { label: 'MongoDB ($lookup)', data: [22.15, 157.47, 1617.12, null], ...{ backgroundColor: 'rgba(74, 222, 128, 0.7)', borderColor: '#4ade80', borderWidth: 2, barPercentage: 0.8, categoryPercentage: 0.6 } },
+                { label: 'Oracle Native', data: [null, null, null, null], ...{ backgroundColor: 'rgba(168, 85, 247, 0.7)', borderColor: '#a855f7', borderWidth: 2, barPercentage: 0.8, categoryPercentage: 0.6 } },
+                { label: 'Oracle $sql', data: [75.28, 598.64, 6082.84, null], ...{ backgroundColor: 'rgba(245, 158, 11, 0.7)', borderColor: '#f59e0b', borderWidth: 2, barPercentage: 0.8, categoryPercentage: 0.6 } },
+                { label: 'JDBC JSON', data: [18.80, 182.58, 1887.50, 0.36], ...{ backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: '#3b82f6', borderWidth: 2, barPercentage: 0.8, categoryPercentage: 0.6 } },
+                { label: 'JDBC Relational', data: [9.16, 74.31, 771.12, 0.27], ...{ backgroundColor: 'rgba(236, 72, 153, 0.7)', borderColor: '#ec4899', borderWidth: 2, barPercentage: 0.8, categoryPercentage: 0.6 } },
+                { label: 'JDBC Hybrid', data: [49.20, 308.57, 3119.80, 0.36], ...{ backgroundColor: 'rgba(20, 184, 166, 0.7)', borderColor: '#14b8a6', borderWidth: 2, barPercentage: 0.8, categoryPercentage: 0.6 } }
+            ]
+        },
+        options: {
+    responsive: true,
+    plugins: {
+        legend: { labels: { color: '#eee', font: { size: 13 }, padding: 20 } },
+        tooltip: { callbacks: { label: function(context) { if (context.parsed.y === null) return context.dataset.label + ': N/A'; return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms'; } } }
     },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                labels: { color: '#eee', font: { size: 14 } }
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' }
-            },
-            y: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' },
-                title: {
-                    display: true,
-                    text: 'Time (milliseconds)',
-                    color: '#aaa'
-                }
-            }
-        }
+    layout: { padding: { left: 40, right: 40 } },
+    scales: {
+        x: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)', offset: true }, offset: true },
+        y: { ticks: { color: '#aaa' }, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Time (ms)', color: '#888' } }
     }
-});
-new Chart(document.getElementById('chart3'), {
-    type: 'line',
-    data: {
-        labels: ['100 customers','500 customers','1000 customers','2000 customers','5000 customers'],
-        datasets: [
-            {
-                label: 'MongoDB Native',
-                data: [4.53665,21.476748,41.83261,83.607479,202.092338],
-                borderColor: '#4ade80',
-                backgroundColor: 'rgba(74, 222, 128, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle MongoDB API',
-                data: [2.006565,7.018884,11.363675,21.310586,51.663125],
-                borderColor: '#f59e0b',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            },
-            {
-                label: 'Oracle JDBC',
-                data: [4.237078,18.433268,32.924365,64.427701,164.729912],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                tension: 0.3,
-                fill: true,
-                pointRadius: 6,
-                pointHoverRadius: 8
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        plugins: {
-            legend: {
-                labels: { color: '#eee', font: { size: 14 } }
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ms';
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' }
-            },
-            y: {
-                ticks: { color: '#aaa' },
-                grid: { color: 'rgba(255,255,255,0.1)' },
-                title: {
-                    display: true,
-                    text: 'Time (milliseconds)',
-                    color: '#aaa'
-                }
-            }
-        }
-    }
-});
+}
+    });
+}
 </script>
-    <div class="footer">
-        Generated by DocBench Triple Comparison Benchmark<br>
-        MongoDB $lookup vs Oracle $sql (MongoDB API) vs Oracle SQL JOIN (JDBC)
-    </div>
+<script>
+function openTab(evt, tabId) {
+    const container = evt.target.closest('.chart-section');
+    container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    container.querySelector('#' + tabId).classList.add('active');
+    evt.target.classList.add('active');
+}
+function openSubTab(evt, subTabId) {
+    const tabContent = evt.target.closest('.tab-content');
+    tabContent.querySelectorAll('.subtab-content').forEach(c => c.classList.remove('active'));
+    tabContent.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+    tabContent.querySelector('#' + subTabId).classList.add('active');
+    evt.target.classList.add('active');
+}
+
+function openProtocolTab(evt, protocolId) {
+    const tabContent = evt.target.closest('.tab-content');
+    tabContent.querySelectorAll('.protocol-content').forEach(c => c.classList.remove('active'));
+    tabContent.querySelectorAll('.protocol-btn').forEach(b => b.classList.remove('active'));
+    const protocolContent = tabContent.querySelector('#' + protocolId);
+    if (protocolContent) {
+        protocolContent.classList.add('active');
+    }
+    evt.target.classList.add('active');
+}
+
+function openTestTab(evt, testId) {
+    const protocolContent = evt.target.closest('.protocol-content');
+    protocolContent.querySelectorAll('.test-content').forEach(c => c.classList.remove('active'));
+    protocolContent.querySelectorAll('.test-btn').forEach(b => b.classList.remove('active'));
+    const testContent = protocolContent.querySelector('#' + testId);
+    if (testContent) {
+        testContent.classList.add('active');
+    }
+    evt.target.classList.add('active');
+}
+</script>
+<div class="footer">
+    Generated by DocBench - MongoDB vs Oracle Quad Comparison Benchmark Suite<br>
+    MongoDB $lookup | Oracle $sql | JDBC JSON | JDBC Relational
+</div>
 </div>
 </body>
 </html>
